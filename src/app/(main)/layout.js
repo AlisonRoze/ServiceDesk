@@ -17,10 +17,10 @@ export default function MainLayout({ children }) {
               <NotificationBadge />
             </a>
           </nav>
-          <button className={LayoutStyles.createRequestBtn}>
-            <span className={LayoutStyles.btnIcon}>✏️</span>
+          <a href="/requests/create" className={LayoutStyles.createRequestBtn}>
+            <span className={LayoutStyles.btnIcon}><Image src="/assets/create_request_btn.svg" alt="Create Request" width={20} height={20} /></span>
             СОЗДАТЬ ЗАЯВКУ
-          </button>
+          </a>
         </div>
       </header>
 

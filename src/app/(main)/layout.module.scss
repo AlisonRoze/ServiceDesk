@@ -8,13 +8,11 @@ $white-color: #FFFFFF;
 
 // Общие стили для страницы профиля
 .profileContainer {
-  min-height: 100vh;
-  background: linear-gradient(180deg, #F2F3F5 0%, #F0F1F5 59.62%, #EBEDF4 100%);
+  max-height: 100vh;
 }
 
 // Header
 .profileHeader {
-  background: transparent;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -71,7 +69,7 @@ $white-color: #FFFFFF;
   background: $red-color;
   color: $white-color;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.75rem 1.5rem;
   font-size: 0.9rem;
   font-weight: 600;
@@ -80,7 +78,7 @@ $white-color: #FFFFFF;
   align-items: center;
   gap: 0.5rem;
   transition: background-color 0.2s;
-
+  text-decoration: none;
   &:hover {
     background: color-mix(in srgb, $red-color 90%, black);
   }
@@ -89,8 +87,7 @@ $white-color: #FFFFFF;
 // Main Content
 .profileMain {
   margin: 0 auto;
-  padding: 3rem 2rem;
-  background: transparent;
+  background: inherit;
   min-height: calc(100vh - 120px);
 }
 

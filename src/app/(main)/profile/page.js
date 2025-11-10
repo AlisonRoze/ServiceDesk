@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useNotification } from '@/contexts/NotificationContext'
 import styles from './profile.module.scss'
 
@@ -10,6 +11,14 @@ export default function ProfilePage() {
   const { showNotification } = useNotification()
   const [user, setUser] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState(null)
+
+  useEffect(() => {
+    const previousBackground = document.body.style.background
+    document.body.style.background = 'linear-gradient(180deg, #F2F3F5 0%, #F0F1F5 59.62%, #EBEDF4 100%)'
+    return () => {
+      document.body.style.background = previousBackground
+    }
+  }, [])
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -105,7 +114,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <>
+    <div className={styles.generalContainer}>
         <div className={styles.userSummary}>
           <div className={styles.avatarContainer}>
             <div className={styles.avatar}>
@@ -131,7 +140,7 @@ export default function ProfilePage() {
                 onChange={handleAvatarUpload}
                 style={{ display: 'none' }}
               />
-              ✏️
+              <Image src="/assets/edit_avatar_btn.svg" alt="Edit Avatar" width={14} height={14} />
             </label>
           </div>
           <h1 className={styles.userName}>
@@ -140,6 +149,7 @@ export default function ProfilePage() {
         </div>
 
         <div className={styles.aboutSection}>
+          <div className={styles.aboutSectionContent}>
           <h2 className={styles.sectionTitle}>Обо мне</h2>
           <div className={styles.infoCard}>
             <div className={styles.infoItem}>
@@ -167,8 +177,10 @@ export default function ProfilePage() {
               <span className={styles.infoValue}>{user.email || '—'}</span>
             </div>
           </div>
+          </div>
 
           {/* Logout Button */}
+          <div className={styles.logoutBtnContainer}>
           <button 
             className={styles.logoutBtn}
             onClick={() => {
@@ -176,10 +188,11 @@ export default function ProfilePage() {
               router.push('/')
             }}
           >
-            <span className={styles.btnIcon}>🚪</span>
-            Выйти
-          </button>
+            <span className={styles.btnIcon}><Image src="/assets/logout_btn.svg" alt="Logout" width={20} height={20} /></span>
+                Выйти
+              </button>
+            </div>
         </div>
-    </>
+    </div>
   )
 }
