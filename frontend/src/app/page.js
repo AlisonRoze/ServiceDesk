@@ -4,6 +4,9 @@ import { useState } from 'react'
 import InputField from '../components/ui/InputField/InputField'
 import styles from './page.module.scss'
 
+// Базовый URL для Django API
+const API_BASE_URL = 'http://127.0.0.1:8000'
+
 export default function HomePage() {
   const [formData, setFormData] = useState({
     email: '',
@@ -27,7 +30,7 @@ export default function HomePage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

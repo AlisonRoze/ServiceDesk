@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useNotification } from '@/contexts/NotificationContext'
 import styles from './profile.module.scss'
 
+// Базовый URL для Django API
+const API_BASE_URL = 'http://127.0.0.1:8000'
+
 export default function ProfilePage() {
   const router = useRouter()
   const { showNotification } = useNotification()
@@ -23,9 +26,26 @@ export default function ProfilePage() {
       }
 
       try {
-        // Всегда загружаем актуальные данные с сервера
+        const parsedUser = JSON.parse(userData)
+        const userId = parsedUser.id
+
+        if (!userId) {
+          // Если нет ID пользователя, используем данные из localStorage
+          setUser(parsedUser)
+          if (parsedUser.avatarUrl) {
+            setAvatarUrl(parsedUser.avatarUrl)
+          }
+          return
+        }
+
+        // Загружаем актуальные данные с Django API
         try {
-          const response = await fetch('/api/user/profile')
+          const response = await fetch(`${API_BASE_URL}/api/user/profile/${userId}/`)
+          
+          if (!response.ok) {
+            throw new Error('Ошибка при загрузке данных')
+          }
+
           const data = await response.json()
           
           if (data.success && data.user) {
@@ -41,7 +61,6 @@ export default function ProfilePage() {
         } catch (error) {
           console.error('Ошибка при загрузке данных пользователя с сервера:', error)
           // Если не удалось загрузить с сервера, используем данные из localStorage
-          const parsedUser = JSON.parse(userData)
           setUser(parsedUser)
           // Загружаем аватар из localStorage, если он есть
           if (parsedUser.avatarUrl) {
