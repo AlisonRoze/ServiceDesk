@@ -3,11 +3,17 @@
 import { useState, useEffect } from 'react'
 import styles from './NotificationBadge.module.scss'
 
-export default function NotificationBadge() {
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
+export default function NotificationBadge({ count }) {
+  const [unreadCount, setUnreadCount] = useState(count ?? 0)
+  const [isLoading, setIsLoading] = useState(count === undefined)
 
   useEffect(() => {
+    if (count !== undefined) {
+      setUnreadCount(count)
+      setIsLoading(false)
+      return
+    }
+
     const fetchUnreadCount = async () => {
       try {
         const response = await fetch('/api/notifications/unread-count')
