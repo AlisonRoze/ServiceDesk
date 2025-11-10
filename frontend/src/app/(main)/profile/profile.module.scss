@@ -112,8 +112,8 @@ $white-color: #FFFFFF;
   display: flex;
   align-items: center;
   gap: 2rem;
-  margin-bottom: 3rem;
   justify-content: center;
+  min-height: 220px;
 }
 
 .avatarContainer {
@@ -121,11 +121,10 @@ $white-color: #FFFFFF;
 }
 
 .avatar {
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   position: relative;
   display: flex;
-  align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
@@ -160,13 +159,13 @@ $white-color: #FFFFFF;
 
 .editAvatarBtn {
   position: absolute;
-  bottom: -10px;
-  right: -10px;
+  bottom: -5px;
+  right: -5px;
   background: white;
   border: none;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -191,20 +190,33 @@ $white-color: #FFFFFF;
 }
 
 .userName {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 36px;
+  font-weight: 500;
   color: $gray-dark;
   margin: 0;
 }
 
 // About Section
 .aboutSection {
-  max-width: 576px;
-  
+  width: 100%;
+  background-color: $white-color;
+  min-height: 100%;
+  padding: 91px 0;
 }
 
+.aboutSectionContent {
+  max-width: 30%;
+  margin: 0 auto;
+}
+
+.logoutBtnContainer {
+  max-width: 30%;
+  margin: 48px auto;
+}
+
+
 .sectionTitle {
-  font-size: 1.5rem;
+  font-size: 28px;
   font-weight: 700;
   color: $gray-dark;
   margin-bottom: 1rem;
@@ -221,12 +233,8 @@ $white-color: #FFFFFF;
   flex-direction: column;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 1rem 0;
-  border-bottom: 1px solid rgba($gray-medium, 0.2);
+  padding: 8px 0;
 
-  &:last-child {
-    border-bottom: none;
-  }
 }
 
 .infoLabel {
@@ -245,19 +253,23 @@ $white-color: #FFFFFF;
 
 // Buttons
 .logoutBtn {
+  width: 220px;
   background: $black-color;
   color: $white-color;
   border: none;
   border-radius: 12px;
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  font-weight: 600;
+  padding: 16px 59px;
+  font-family: var(--font-family-mono);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 100%;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   transition: background-color 0.2s;
-  width: 100%;
   justify-content: center;
 
   &:hover {
