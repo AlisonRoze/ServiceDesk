@@ -37,6 +37,9 @@ db.sqlite3-journal
 /media
 /staticfiles
 /static
+# Защита настроек с паролями (если используете отдельный файл)
+*_local.py
+*_secret.py
 
 # Node.js / Next.js
 node_modules/
