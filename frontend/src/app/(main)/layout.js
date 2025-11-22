@@ -14,7 +14,7 @@ function HeaderNav() {
 
   return (
     <div className={LayoutStyles.profileHeaderContent}>
-      <Image src="/assets/logo.svg" alt="Logo" width={100} height={100} priority />
+      <Image src="/assets/logo.svg" alt="Logo" width={155} height={55} priority />
       <nav className={LayoutStyles.profileNav}>
         <a href="/profile" className={`${LayoutStyles.navLink} ${isProfile ? LayoutStyles.active : ''}`}>ЛИЧНЫЙ КАБИНЕТ</a>
         <a href="/requests" className={`${LayoutStyles.navLink} ${isRequests ? LayoutStyles.active : ''}`}>ЗАЯВКИ</a>
