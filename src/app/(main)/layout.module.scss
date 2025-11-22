@@ -1,6 +1,6 @@
 // Переменные
-$red-color: #E81922;
-$black-color: #111111;
+$red-color: #DC4433;
+$black-color: #222224;
 $gray-light: #F5F5F5;
 $gray-medium: #999999;
 $gray-dark: #333333;
@@ -45,8 +45,9 @@ $white-color: #FFFFFF;
 
 .navLink {
   text-decoration: none;
-  color: $gray-dark;
-  font-weight: 500;
+  color: $black-color;
+  font-family: Inter, sans-serif;
+  font-weight: 400;
   font-size: 1rem;
   padding: 0.5rem 1rem;
   transition: border-color 0.2s;
@@ -70,7 +71,7 @@ $white-color: #FFFFFF;
   color: $white-color;
   border: none;
   border-radius: 10px;
-  padding: 0.75rem 1.5rem;
+  padding: 19px 26px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
