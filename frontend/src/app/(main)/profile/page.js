@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { useNotification } from '@/contexts/NotificationContext'
+import { useNotifications } from '@/context/NotificationsContext'
 import styles from './profile.module.scss'
 
 // Базовый URL для Django API
@@ -11,7 +11,7 @@ const API_BASE_URL = 'http://127.0.0.1:8000'
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { showNotification } = useNotification()
+  const { showNotification } = useNotifications()
   const [user, setUser] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState(null)
 

@@ -1,8 +1,8 @@
 'use client'
 
-import { NotificationProvider } from '@/contexts/NotificationContext'
+import { NotificationsProvider } from '@/context/NotificationsContext'
 
 export default function NotificationProviderWrapper({ children }) {
-  return <NotificationProvider>{children}</NotificationProvider>
+  return <NotificationsProvider>{children}</NotificationsProvider>
 }
 
