@@ -93,7 +93,7 @@ export default function ProfilePage() {
   const userFullName = user?.fullName || 'Фамилия Имя Отчество'
 
   // Обработчик загрузки аватара
-  const handleAvatarUpload = (e) => {
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -114,22 +114,49 @@ export default function ProfilePage() {
     reader.onload = (event) => {
       const imageUrl = event.target.result
       setAvatarUrl(imageUrl)
-      
-      // Обновляем данные пользователя в localStorage
-      if (user) {
-        const updatedUser = { ...user, avatarUrl: imageUrl }
-        localStorage.setItem('user', JSON.stringify(updatedUser))
-        setUser(updatedUser)
-      }
-      
-      // Здесь можно отправить файл на сервер
-      // TODO: Реализовать загрузку на сервер через API
-      // uploadAvatarToServer(file)
     }
     reader.onerror = () => {
       showNotification('Ошибка при чтении файла', 'error')
     }
     reader.readAsDataURL(file)
+
+    // Отправляем файл на сервер
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+
+      const response = await fetch(`${API_BASE_URL}/api/user/avatar/${user.id}/`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        // Обновляем URL аватара из ответа сервера
+        if (data.avatarUrl) {
+          setAvatarUrl(data.avatarUrl)
+          
+          // Обновляем данные пользователя в localStorage
+          if (user) {
+            const updatedUser = { ...user, avatarUrl: data.avatarUrl }
+            localStorage.setItem('user', JSON.stringify(updatedUser))
+            setUser(updatedUser)
+          }
+        }
+        
+        showNotification('Аватар успешно загружен', 'success')
+      } else {
+        showNotification(data.error || 'Ошибка при загрузке аватара', 'error')
+        // Откатываем предпросмотр при ошибке
+        setAvatarUrl(user?.avatarUrl || null)
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке аватара:', error)
+      showNotification('Ошибка при подключении к серверу', 'error')
+      // Откатываем предпросмотр при ошибке
+      setAvatarUrl(user?.avatarUrl || null)
+    }
   }
 
   return (

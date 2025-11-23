@@ -1,5 +1,18 @@
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
+import os
+
+
+def user_avatar_path(instance, filename):
+    """Генерирует путь для сохранения аватара пользователя"""
+    # Используем ID пользователя для создания папки
+    # Если ID еще не существует, используем временное имя
+    user_id = instance.id_user if instance.id_user else 'temp'
+    # Получаем расширение файла
+    ext = filename.split('.')[-1]
+    # Создаем имя файла: avatar.ext
+    filename = f'avatar.{ext}'
+    return f'users/{user_id}/{filename}'
 
 
 class Office(models.Model):
@@ -42,6 +55,7 @@ class User(models.Model):
     role = models.CharField(max_length=50)
     desk_number = models.CharField(max_length=50, null=True, blank=True, verbose_name='Номер стола')
     birth_date = models.DateField(null=True, blank=True, verbose_name='Дата рождения')
+    avatar = models.ImageField(upload_to=user_avatar_path, null=True, blank=True, verbose_name='Аватар')
     office = models.ForeignKey(
         Office,
         on_delete=models.CASCADE,
@@ -150,6 +164,33 @@ class Request(models.Model):
 
     def __str__(self):
         return f"Заявка {self.id_request}"
+
+
+class Notification(models.Model):
+    id_notification = models.AutoField(primary_key=True)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        verbose_name='FK Пользователь'
+    )
+    request = models.ForeignKey(
+        Request,
+        on_delete=models.CASCADE,
+        related_name='request_notifications',
+        null=True,
+        blank=True,
+        verbose_name='FK Заявка'
+    )
+    message = models.TextField(verbose_name='Текст уведомления')
+    is_read = models.BooleanField(default=False, verbose_name='Прочитано')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Уведомление для {self.user} - {self.message[:50]}"
 
 
 class Load(models.Model):

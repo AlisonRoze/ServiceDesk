@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Office, Request, Status, TypeOfFailure, Comment, Table, Load
+from .models import User, Office, Request, Status, TypeOfFailure, Comment, Table, Load, Notification
 
 
 @admin.register(User)
@@ -9,7 +9,7 @@ class UserAdmin(admin.ModelAdmin):
     search_fields = ('email', 'username', 'last_name', 'first_name')
     fieldsets = (
         ('Учетные данные', {
-            'fields': ('email', 'username', 'password')
+            'fields': ('email', 'username', 'password', 'avatar')
         }),
         ('Личная информация', {
             'fields': ('last_name', 'first_name', 'middle_name', 'position', 'role', 'desk_number', 'birth_date')
@@ -63,3 +63,11 @@ class TableAdmin(admin.ModelAdmin):
 @admin.register(Load)
 class LoadAdmin(admin.ModelAdmin):
     list_display = ('id_load', 'staff', 'current_tasks_count', 'urgency')
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('id_notification', 'user', 'request', 'message', 'is_read', 'created_at')
+    list_filter = ('is_read', 'created_at')
+    search_fields = ('user__last_name', 'user__first_name', 'message')
+    readonly_fields = ('created_at',)

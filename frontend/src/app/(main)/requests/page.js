@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import styles from './page.module.scss'
 import RequestCard from '@/components/ui/RequestCard/RequestCard'
 import { useUserAuth } from '@/context/UserAuthContext'
 
-// Мок-данные заявок
+// Базовый URL для Django API
+const API_BASE_URL = 'http://127.0.0.1:8000'
+
+// Мок-данные заявок (fallback)
 const mockRequests = [
   {
     id: 'r1',
@@ -89,11 +92,45 @@ const statusConfigs = {
 }
 
 export default function RequestsPage() {
-  const [requests, setRequests] = useState(mockRequests)
+  const [requests, setRequests] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
   const [draggedRequest, setDraggedRequest] = useState(null)
   const [draggedOverColumn, setDraggedOverColumn] = useState(null)
   
-  const { userRole } = useUserAuth()
+  const { userRole, user } = useUserAuth()
+
+  // Загрузка заявок с сервера
+  useEffect(() => {
+    const loadRequests = async () => {
+      if (!user || !user.id) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/requests/${user.id}/`)
+        
+        if (!response.ok) {
+          throw new Error('Ошибка при загрузке заявок')
+        }
+
+        const data = await response.json()
+        
+        if (data.success && data.requests) {
+          setRequests(data.requests)
+        } else {
+          setRequests([])
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке заявок:', error)
+        setRequests([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadRequests()
+  }, [user])
 
   const statusConfig = statusConfigs[userRole] || statusConfigs.employee
 
@@ -113,16 +150,56 @@ export default function RequestsPage() {
     setDraggedOverColumn(null)
   }
 
-  const handleDrop = (e, targetStatus) => {
+  const handleDrop = async (e, targetStatus) => {
     e.preventDefault()
     setDraggedOverColumn(null)
 
     if (draggedRequest && draggedRequest.status !== targetStatus) {
+      // Оптимистичное обновление UI
       setRequests((prevRequests) =>
         prevRequests.map((req) =>
           req.id === draggedRequest.id ? { ...req, status: targetStatus } : req
         )
       )
+
+      // Отправляем запрос на сервер для обновления статуса
+      try {
+        if (!user || !user.id) {
+          console.error('Пользователь не найден')
+          return
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/requests/${draggedRequest.id}/status/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            status: targetStatus
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok || !data.success) {
+          // Откатываем изменения при ошибке
+          setRequests((prevRequests) =>
+            prevRequests.map((req) =>
+              req.id === draggedRequest.id ? { ...req, status: draggedRequest.status } : req
+            )
+          )
+          console.error('Ошибка при обновлении статуса:', data.error)
+        }
+      } catch (error) {
+        console.error('Ошибка при обновлении статуса заявки:', error)
+        // Откатываем изменения при ошибке
+        setRequests((prevRequests) =>
+          prevRequests.map((req) =>
+            req.id === draggedRequest.id ? { ...req, status: draggedRequest.status } : req
+          )
+        )
+      }
     }
 
     setDraggedRequest(null)
@@ -135,6 +212,14 @@ export default function RequestsPage() {
 
   const getRequestsByStatus = (status) => {
     return requests.filter((req) => req.status === status)
+  }
+
+  if (isLoading) {
+    return (
+      <div className={styles.dashboard}>
+        <div style={{ padding: '2rem', textAlign: 'center' }}>Загрузка заявок...</div>
+      </div>
+    )
   }
 
   return (

@@ -123,6 +123,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files (User uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -133,9 +138,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://192.168.0.133:3000",
 ]
 
+# Для разработки: разрешаем все локальные IP адреса (можно удалить в production)
+CORS_ALLOW_ALL_ORIGINS = True  # Безопаснее использовать конкретные адреса
+
 CORS_ALLOW_CREDENTIALS = True
+
+# Разрешаем preflight запросы
+CORS_PREFLIGHT_MAX_AGE = 86400
 
 CORS_ALLOW_METHODS = [
     'DELETE',
@@ -157,3 +169,6 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# Дополнительные настройки для работы с файлами
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']

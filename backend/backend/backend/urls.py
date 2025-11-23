@@ -16,10 +16,21 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from back import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/login/', views.login, name='login'),
     path('api/user/profile/<int:user_id>/', views.get_profile, name='get_profile'),
+    path('api/user/avatar/<int:user_id>/', views.upload_avatar, name='upload_avatar'),
+    path('api/requests/create/', views.create_request, name='create_request'),
+    path('api/requests/<int:user_id>/', views.get_requests, name='get_requests'),
+    path('api/requests/<int:request_id>/status/', views.update_request_status, name='update_request_status'),
+    path('api/notifications/<int:user_id>/', views.get_notifications, name='get_notifications'),
 ]
+
+# Добавляем URL для медиа файлов в режиме разработки
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

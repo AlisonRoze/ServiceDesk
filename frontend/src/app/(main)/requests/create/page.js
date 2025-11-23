@@ -4,8 +4,15 @@ import { useForm } from 'react-hook-form'
 import styles from './create.module.scss'
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { useNotifications } from '@/context/NotificationsContext'
+
+// Базовый URL для Django API
+const API_BASE_URL = 'http://127.0.0.1:8000'
 
 export default function CreateRequestPage() {
+  const router = useRouter()
+  const { showNotification } = useNotifications() || {}
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, watch } = useForm({
     defaultValues: {
       priority: '',
@@ -92,21 +99,73 @@ export default function CreateRequestPage() {
   ]
 
   const onSubmit = async (data) => {
-    // Заглушка отправки формы. Здесь можно вызвать ваш API.
-    // await fetch('/api/requests', { method: 'POST', body: JSON.stringify(data) })
-    console.log('Create request payload:', data, {
-      attachedImagesCount: attachedImages.length,
-      attachedImages,
-    })
-    alert('Заявка отправлена (демо). Смотрите консоль для payload.')
     try {
-      attachedPreviews.forEach((src) => {
-        try { URL.revokeObjectURL(src) } catch {}
+      // Получаем user_id из localStorage
+      const userData = localStorage.getItem('user')
+      if (!userData) {
+        showNotification('Необходимо войти в систему', 'error')
+        router.push('/')
+        return
+      }
+
+      const user = JSON.parse(userData)
+      if (!user || !user.id) {
+        showNotification('Ошибка: пользователь не найден', 'error')
+        router.push('/')
+        return
+      }
+
+      // Создаем FormData для отправки файлов
+      const formData = new FormData()
+      formData.append('user_id', user.id)
+      formData.append('issueType', data.issueType)
+      formData.append('priority', data.priority)
+      formData.append('problemDescription', data.problemDescription)
+      formData.append('locationDescription', data.locationDescription)
+      
+      if (data.employeeLocation) {
+        formData.append('employeeLocation', data.employeeLocation)
+      }
+
+      // Добавляем изображения
+      attachedImages.forEach((file, index) => {
+        formData.append('attachments', file)
       })
-    } catch {}
-    reset()
-    setAttachedImages([])
-    setAttachedPreviews([])
+
+      // Отправляем запрос на сервер
+      const response = await fetch(`${API_BASE_URL}/api/requests/create/`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        showNotification('Заявка успешно создана!', 'success')
+        
+        // Очищаем превью
+        try {
+          attachedPreviews.forEach((src) => {
+            try { URL.revokeObjectURL(src) } catch {}
+          })
+        } catch {}
+        
+        // Очищаем форму
+        reset()
+        setAttachedImages([])
+        setAttachedPreviews([])
+        
+        // Перенаправляем на страницу заявок
+        setTimeout(() => {
+          router.push('/requests')
+        }, 1000)
+      } else {
+        showNotification(result.error || 'Ошибка при создании заявки', 'error')
+      }
+    } catch (error) {
+      console.error('Ошибка при создании заявки:', error)
+      showNotification('Ошибка при подключении к серверу', 'error')
+    }
   }
 
   return (
