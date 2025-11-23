@@ -8,6 +8,7 @@
   overflow-x: auto;
   overflow-y: hidden;
 
+  &.employee {
     .column {
       flex: 1 1 calc(33.333% - 17px);
       min-width: 300px;
@@ -15,6 +16,7 @@
   }
 
   &.aho {
+    .column {
       flex: 1 1 calc(25% - 19px);
       min-width: 250px;
     }
