@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import styles from './page.module.scss'
 import RequestCard from '@/components/ui/RequestCard/RequestCard'
+import { useUserAuth } from '@/context/UserAuthContext'
 
 // Мок-данные заявок
 const mockRequests = [
@@ -72,17 +73,29 @@ const mockRequests = [
   },
 ]
 
-const statusConfig = {
-  revision: { label: 'На доработке', key: 'revision' },
-  new: { label: 'Активные', key: 'new' },
-  in_progress: { label: 'В работе', key: 'in_progress' },
-  completed: { label: 'Выполненные', key: 'completed' },
+// Конфигурация колонок для разных ролей
+const statusConfigs = {
+  employee: {
+    revision: { label: 'На доработке', key: 'revision' },
+    new: { label: 'Активные', key: 'new' },
+    completed: { label: 'Выполненные', key: 'completed' },
+  },
+  aho: {
+    revision: { label: 'На доработке', key: 'revision' },
+    new: { label: 'Активные', key: 'new' },
+    in_progress: { label: 'В работе', key: 'in_progress' },
+    completed: { label: 'Выполненные', key: 'completed' },
+  },
 }
 
 export default function RequestsPage() {
   const [requests, setRequests] = useState(mockRequests)
   const [draggedRequest, setDraggedRequest] = useState(null)
   const [draggedOverColumn, setDraggedOverColumn] = useState(null)
+  
+  const { userRole } = useUserAuth()
+
+  const statusConfig = statusConfigs[userRole] || statusConfigs.employee
 
   const handleDragStart = (e, request) => {
     setDraggedRequest(request)
@@ -125,7 +138,7 @@ export default function RequestsPage() {
   }
 
   return (
-    <div className={styles.dashboard}>
+    <div className={`${styles.dashboard} ${styles[userRole]}`}>
       {Object.values(statusConfig).map((config) => {
         const columnRequests = getRequestsByStatus(config.key)
         const isDraggedOver = draggedOverColumn === config.key

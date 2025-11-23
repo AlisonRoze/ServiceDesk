@@ -4,6 +4,7 @@ import Image from 'next/image'
 import NotificationBadge from '@/components/ui/NotificationBadge/NotificationBadge'
 import { usePathname } from 'next/navigation'
 import { NotificationsProvider, useNotifications } from '@/context/NotificationsContext'
+import { UserAuthProvider } from '@/context/UserAuthContext'
 
 function HeaderNav() {
   const pathname = usePathname()
@@ -38,18 +39,20 @@ export default function MainLayout({ children }) {
   const isNotifications = pathname?.startsWith('/notifications')
 
   return (
-    <NotificationsProvider>
-      <div className={LayoutStyles.profileContainer}>
-        {/* Header */}
-        <header className={LayoutStyles.profileHeader}>
-          <HeaderNav />
-        </header>
+    <UserAuthProvider>
+      <NotificationsProvider>
+        <div className={LayoutStyles.profileContainer}>
+          {/* Header */}
+          <header className={LayoutStyles.profileHeader}>
+            <HeaderNav />
+          </header>
 
-        {/* Main Content */}
-        <main className={LayoutStyles.profileMain}>
-          {children}
-        </main>
-      </div>
-    </NotificationsProvider>
+          {/* Main Content */}
+          <main className={LayoutStyles.profileMain}>
+            {children}
+          </main>
+        </div>
+      </NotificationsProvider>
+    </UserAuthProvider>
   )
 }

@@ -1,11 +1,24 @@
 .dashboard {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
   gap: 25px;
   width: 90%;
   margin: 0 auto;
   padding: 24px;
-  min-height: calc(100vh - 200px);
+  height: calc(100vh - 200px);
+  overflow-x: auto;
+  overflow-y: hidden;
+
+    .column {
+      flex: 1 1 calc(33.333% - 17px);
+      min-width: 300px;
+    }
+  }
+
+  &.aho {
+      flex: 1 1 calc(25% - 19px);
+      min-width: 250px;
+    }
+  }
 }
 
 .column {
@@ -17,9 +30,11 @@
   box-shadow: 4px 2px 10px 1px #8C8C8C40;
   backdrop-filter: blur(10px);
   padding: 24px 21px;
-  min-height: 400px;
+  height: 100%;
+  max-height: 100%;
   transition: background-color 0.2s ease;
-
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .columnHeader {
@@ -28,6 +43,7 @@
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .columnTitle {
@@ -53,6 +69,31 @@
   flex-direction: column;
   gap: 25px;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding-right: 12px;
+  margin-right: -4px;
+  padding-top: 5px;
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+    margin: 4px 0;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+    
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
 }
 
 .emptyColumn {
@@ -62,9 +103,22 @@
   font-size: 14px;
 }
 
+.dragOver {
+  background-color: #f0f0f0;
+}
+
 @media (max-width: 1200px) {
   .dashboard {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 200px);
+    
+    .column {
+      flex: 1 1 100%;
+      min-width: 100%;
+      height: auto;
+      max-height: 600px;
+    }
   }
 }
 
