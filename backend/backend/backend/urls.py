@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/requests/<int:user_id>/', views.get_requests, name='get_requests'),
     path('api/requests/<int:request_id>/status/', views.update_request_status, name='update_request_status'),
     path('api/notifications/<int:user_id>/', views.get_notifications, name='get_notifications'),
+    path('api/notifications/<int:notification_id>/read/', views.mark_notification_read, name='mark_notification_read'),
 ]
 
 # Добавляем URL для медиа файлов в режиме разработки

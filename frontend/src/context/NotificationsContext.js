@@ -47,8 +47,12 @@ export function NotificationsProvider({ children }) {
 
         const data = await response.json()
         
-        if (data.success && data.notifications) {
-          setNotifications(data.notifications)
+        if (data.success && Array.isArray(data.notifications)) {
+          // Сортируем уведомления по дате (новые сверху)
+          const sortedNotifications = [...data.notifications].sort((a, b) => (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          ))
+          setNotifications(sortedNotifications)
         } else {
           setNotifications([])
         }
@@ -67,6 +71,84 @@ export function NotificationsProvider({ children }) {
     return () => clearInterval(interval)
   }, [])
 
+  const getStoredUserId = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    try {
+      const userData = localStorage.getItem('user')
+      if (!userData) {
+        return null
+      }
+      const parsedUser = JSON.parse(userData)
+      return parsedUser?.id ?? null
+    } catch (error) {
+      console.error('Ошибка при чтении данных пользователя:', error)
+      return null
+    }
+  }, [])
+
+  const markNotificationAsRead = useCallback(async (notificationId) => {
+    if (!notificationId) {
+      return
+    }
+
+    const userId = getStoredUserId()
+    if (!userId) {
+      console.error('Пользователь не найден, невозможно пометить уведомление')
+      return
+    }
+
+    let previousIsRead = null
+    setNotifications(prev =>
+      prev.map(notification => {
+        if (notification.notificationId !== notificationId) {
+          return notification
+        }
+        previousIsRead = notification.isRead
+        if (notification.isRead) {
+          return notification
+        }
+        return { ...notification, isRead: true }
+      })
+    )
+
+    if (previousIsRead === true) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ user_id: userId })
+      })
+
+      if (!response.ok) {
+        throw new Error('Сервер вернул ошибку')
+      }
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error('Не удалось обновить статус уведомления')
+      }
+    } catch (error) {
+      console.error('Ошибка при обновлении статуса уведомления:', error)
+      if (previousIsRead === false) {
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.notificationId === notificationId
+              ? { ...notification, isRead: false }
+              : notification
+          )
+        )
+      }
+    }
+  }, [getStoredUserId])
+
   const showNotification = useCallback((message, type = 'error') => {
     setNotification({
       isOpen: true,
@@ -82,15 +164,36 @@ export function NotificationsProvider({ children }) {
     }))
   }, [])
 
+  const unreadNotifications = useMemo(
+    () => notifications.filter(notification => !notification.isRead),
+    [notifications]
+  )
+
+  const readNotifications = useMemo(
+    () => notifications.filter(notification => notification.isRead),
+    [notifications]
+  )
+
   const value = useMemo(() => {
     return {
       notifications,
-      unreadCount: notifications.length,
+      unreadNotifications,
+      readNotifications,
+      unreadCount: unreadNotifications.length,
       isLoading,
       showNotification,
-      hideNotification
+      hideNotification,
+      markNotificationAsRead
     }
-  }, [notifications, isLoading, showNotification, hideNotification])
+  }, [
+    notifications,
+    unreadNotifications,
+    readNotifications,
+    isLoading,
+    showNotification,
+    hideNotification,
+    markNotificationAsRead
+  ])
 
   return (
     <NotificationsContext.Provider value={value}>

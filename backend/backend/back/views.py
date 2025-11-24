@@ -482,8 +482,10 @@ def get_notifications(request, user_id):
         for notif in notifications:
             notifications_list.append({
                 'id': f'n_{notif.id_notification}',
+                'notificationId': notif.id_notification,
                 'text': notif.message,
                 'createdAt': notif.created_at.isoformat(),
+                'isRead': notif.is_read,
             })
 
         # Подсчитываем непрочитанные уведомления
@@ -495,6 +497,59 @@ def get_notifications(request, user_id):
             'unreadCount': unread_count
         })
 
+    except Exception as e:
+        return JsonResponse(
+            {'error': f'Ошибка сервера: {str(e)}'},
+            status=500
+        )
+
+
+@csrf_exempt
+@require_http_methods(["PATCH"])
+def mark_notification_read(request, notification_id):
+    """API endpoint для пометки уведомления как прочитанного"""
+    try:
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {'error': 'Неверный формат данных'},
+                status=400
+            )
+
+        user_id = data.get('user_id')
+        if not user_id:
+            return JsonResponse(
+                {'error': 'ID пользователя обязателен'},
+                status=400
+            )
+
+        try:
+            notification = Notification.objects.get(id_notification=notification_id)
+        except Notification.DoesNotExist:
+            return JsonResponse(
+                {'error': 'Уведомление не найдено'},
+                status=404
+            )
+
+        if notification.user.id_user != int(user_id):
+            return JsonResponse(
+                {'error': 'Нет доступа к этому уведомлению'},
+                status=403
+            )
+
+        if not notification.is_read:
+            notification.is_read = True
+            notification.save(update_fields=['is_read'])
+
+        return JsonResponse({
+            'success': True,
+            'notification': {
+                'id': f'n_{notification.id_notification}',
+                'notificationId': notification.id_notification,
+                'isRead': notification.is_read
+            }
+        })
     except Exception as e:
         return JsonResponse(
             {'error': f'Ошибка сервера: {str(e)}'},

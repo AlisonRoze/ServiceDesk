@@ -14,29 +14,38 @@ export default function NotificationBadge({ count }) {
       return
     }
 
+    let isCancelled = false
+
     const fetchUnreadCount = async () => {
       try {
         const response = await fetch('/api/notifications/unread-count')
         const data = await response.json()
         
-        if (data.success) {
+        if (data.success && !isCancelled) {
           setUnreadCount(data.count || 0)
         }
       } catch (error) {
-        console.error('Ошибка при получении количества уведомлений:', error)
-        setUnreadCount(0)
+        if (!isCancelled) {
+          console.error('Ошибка при получении количества уведомлений:', error)
+          setUnreadCount(0)
+        }
       } finally {
-        setIsLoading(false)
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
       }
     }
 
     fetchUnreadCount()
 
     // Опционально: обновлять счетчик каждые 30 секунд
-    const interval = setInterval(fetchUnreadCount, 30000)
+    const interval = setInterval(fetchUnreadCount, 5000)
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      isCancelled = true
+      clearInterval(interval)
+    }
+  }, [count])
 
   // Не показываем badge, если нет непрочитанных уведомлений или идет загрузка
   if (isLoading || unreadCount === 0) {
