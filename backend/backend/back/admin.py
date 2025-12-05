@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Office, Request, Status, TypeOfFailure, Comment, Table, Load, Notification
+from .models import User, Office, Request, RequestAttachment, Status, TypeOfFailure, Comment, Table, Load, Notification
 
 
 @admin.register(User)
@@ -38,6 +38,13 @@ class RequestAdmin(admin.ModelAdmin):
     list_display = ('id_request', 'user', 'failure_type', 'urgency', 'status', 'created_at')
     list_filter = ('status', 'urgency', 'created_at')
     search_fields = ('description', 'user__last_name', 'user__first_name')
+
+
+@admin.register(RequestAttachment)
+class RequestAttachmentAdmin(admin.ModelAdmin):
+    list_display = ('id_attachment', 'request', 'file', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('request__id_request',)
 
 
 @admin.register(Status)

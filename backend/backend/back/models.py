@@ -166,6 +166,25 @@ class Request(models.Model):
         return f"Заявка {self.id_request}"
 
 
+class RequestAttachment(models.Model):
+    """Модель для хранения вложений к заявке"""
+    id_attachment = models.AutoField(primary_key=True)
+    request = models.ForeignKey(
+        Request,
+        on_delete=models.CASCADE,
+        related_name='request_attachments',
+        verbose_name='FK Заявка'
+    )
+    file = models.FileField(upload_to='attachments/', verbose_name='Файл')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Вложение {self.id_attachment} для заявки {self.request.id_request}"
+
+
 class Notification(models.Model):
     id_notification = models.AutoField(primary_key=True)
     user = models.ForeignKey(

@@ -38,6 +38,11 @@ export default function HomePage() {
         body: JSON.stringify(formData),
       })
 
+      // Проверяем, что ответ получен
+      if (!response.ok && response.status === 0) {
+        throw new Error('Не удалось подключиться к серверу. Убедитесь, что backend сервер запущен на http://127.0.0.1:8000')
+      }
+
       const data = await response.json()
 
       if (response.ok) {
@@ -49,7 +54,14 @@ export default function HomePage() {
         setError(data.error || 'Произошла ошибка при авторизации')
       }
     } catch (error) {
-      setError('Ошибка при подключении к серверу')
+      // Более детальная обработка ошибок
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setError('Не удалось подключиться к серверу. Проверьте, что backend сервер запущен на http://127.0.0.1:8000')
+      } else if (error.message) {
+        setError(error.message)
+      } else {
+        setError('Ошибка при подключении к серверу. Проверьте, что backend сервер запущен.')
+      }
       console.error('Ошибка:', error)
     } finally {
       setIsLoading(false)

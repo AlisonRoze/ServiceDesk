@@ -70,7 +70,8 @@ def login(request):
                 'position': user.position or '',
                 'deskNumber': user.desk_number or '',
                 'birthDate': birth_date_str,
-                'avatarUrl': avatar_url
+                'avatarUrl': avatar_url,
+                'role': user.role or ''
             }
         }
 
@@ -124,7 +125,8 @@ def get_profile(request, user_id):
                 'position': user.position or '',
                 'deskNumber': user.desk_number or '',
                 'birthDate': birth_date_str,
-                'avatarUrl': avatar_url
+                'avatarUrl': avatar_url,
+                'role': user.role or ''
             }
         }
 
@@ -246,6 +248,7 @@ STATUS_MAPPING = {
     'В работе': 'in_progress',
     'Выполнена': 'completed',
     'Выполненные': 'completed',
+    'Ожидают закупки': 'awaiting_purchase',
 }
 
 
@@ -339,7 +342,14 @@ def create_request(request):
         # Обработка загрузки изображений
         if 'attachments' in request.FILES:
             files = request.FILES.getlist('attachments')
-            # Сохраняем первое изображение как основное вложение
+            # Сохраняем все изображения
+            from back.models import RequestAttachment
+            for file in files:
+                RequestAttachment.objects.create(
+                    request=new_request,
+                    file=file
+                )
+            # Также сохраняем первое изображение в старое поле для обратной совместимости
             if files:
                 new_request.attachments = files[0]
                 new_request.save()
@@ -398,6 +408,7 @@ STATUS_MAPPING = {
     'В работе': 'in_progress',
     'Выполнена': 'completed',
     'Выполненные': 'completed',
+    'Ожидают закупки': 'awaiting_purchase',
 }
 
 
@@ -417,7 +428,7 @@ def get_requests(request, user_id):
 
         # Получаем заявки пользователя
         requests = Request.objects.filter(user=user).select_related(
-            'failure_type', 'status', 'office_address'
+            'failure_type', 'status', 'office_address', 'performer'
         ).order_by('-created_at')
 
         # Формируем список заявок
@@ -440,13 +451,44 @@ def get_requests(request, user_id):
                 location_parts.append(req.employee_location)
             location = ', '.join(location_parts) if location_parts else 'Не указано'
 
+            # Формируем список вложений из новой модели RequestAttachment
+            from back.models import RequestAttachment
+            attachments = []
+            request_attachments = RequestAttachment.objects.filter(request=req)
+            for attachment in request_attachments:
+                if attachment.file:
+                    attachment_url = request.build_absolute_uri(attachment.file.url)
+                    attachments.append(attachment_url)
+            
+            # Если нет вложений в новой модели, используем старое поле для обратной совместимости
+            if not attachments and req.attachments:
+                attachment_url = request.build_absolute_uri(req.attachments.url)
+                attachments.append(attachment_url)
+            
+            # Формируем данные об исполнителе
+            performer_data = None
+            if req.performer:
+                performer_data = {
+                    'id': req.performer.id_user,
+                    'first_name': req.performer.first_name or '',
+                    'last_name': req.performer.last_name or '',
+                    'middle_name': req.performer.middle_name or '',
+                    'username': req.performer.username or '',
+                }
+            
             requests_list.append({
                 'id': str(req.id_request),
                 'priority': priority,
                 'location': location,
+                'address': req.office_address.address if req.office_address else '',
+                'employeeLocation': req.employee_location or '',
+                'locationDescription': req.office_location or '',
+                'problemDescription': req.description or '',
                 'issueType': issue_type,
                 'status': status_key,
                 'createdAt': req.created_at.isoformat(),
+                'attachments': attachments,
+                'performer': performer_data,
             })
 
         return JsonResponse({
@@ -563,6 +605,7 @@ STATUS_REVERSE_MAPPING = {
     'revision': 'На доработке',
     'in_progress': 'В работе',
     'completed': 'Выполнена',
+    'awaiting_purchase': 'Ожидают закупки',
 }
 
 
@@ -633,6 +676,7 @@ def update_request_status(request, request_id):
                 'На доработке': f'Ваша заявка #{req.id_request} отправлена на доработку.',
                 'В работе': f'Ваша заявка #{req.id_request} взята в работу.',
                 'Новая': f'Ваша заявка #{req.id_request} создана.',
+                'Ожидают закупки': f'Ваша заявка #{req.id_request} ожидает закупки.',
             }
             
             message = status_messages.get(new_status_name, f'Статус заявки #{req.id_request} изменен на "{new_status_name}"')

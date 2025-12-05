@@ -18,7 +18,8 @@ export async function GET(request) {
         officeAddress: 'г. Екатеринбург, ул. Мира, д. 19',
         position: 'Разработчик',
         deskNumber: '19',
-        birthDate: '01.01.2000'
+        birthDate: '01.01.2000',
+        role: 'employee'
       }
     })
   } catch (error) {

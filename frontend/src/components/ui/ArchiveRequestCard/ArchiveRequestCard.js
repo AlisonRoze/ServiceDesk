@@ -1,6 +1,6 @@
 'use client'
 
-import styles from './RequestCard.module.scss'
+import styles from './ArchiveRequestCard.module.scss'
 
 const priorityLabels = {
   low: 'Низкая',
@@ -31,14 +31,27 @@ function formatDate(dateString) {
   return `${day} ${month}, ${hours}:${minutes}`
 }
 
-export default function RequestCard({ request, isDragging, onDragStart, onDragEnd, onClick }) {
+function formatPerformerName(performer) {
+  if (!performer) return 'Не назначен'
+  const firstName = performer.first_name || ''
+  const lastName = performer.last_name || ''
+  const middleName = performer.middle_name || ''
+  
+  if (lastName && firstName) {
+    const initials = middleName ? `${middleName.charAt(0)}.` : ''
+    return `${lastName} ${firstName.charAt(0)}. ${initials}`.trim()
+  }
+  return performer.username || 'Не назначен'
+}
+
+export default function ArchiveRequestCard({ request, onClick }) {
   const priorityLabel = priorityLabels[request.priority] || request.priority
   const issueTypeLabel = issueTypeLabels[request.issueType] || request.issueType
   const formattedDate = formatDate(request.createdAt)
-  const isCompleted = request.status === 'completed'
+  const performerName = formatPerformerName(request.performer)
 
   const handleClick = (e) => {
-    if (onClick && !isDragging) {
+    if (onClick) {
       e.stopPropagation()
       onClick(request)
     }
@@ -46,19 +59,21 @@ export default function RequestCard({ request, isDragging, onDragStart, onDragEn
 
   return (
     <div
-      className={`${styles.requestCard} ${isDragging ? styles.dragging : ''} ${isCompleted ? styles.completed : ''} ${styles[request.priority]}`}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      className={styles.archiveCard}
       onClick={handleClick}
-      style={{ cursor: onClick ? 'pointer' : 'grab' }}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
-      <div className={`${styles.priority} ${styles[request.priority]} ${isCompleted ? styles.completed : ''}`}>
-        {priorityLabel}
+      <div className={styles.cardHeader}>
+        <div className={styles.cardContent}>
+          <div className={styles.location}>{request.location}</div>
+          <div className={styles.issueType}>Тип: {issueTypeLabel}</div>
+          <div className={styles.performer}>Исполнитель: {performerName}</div>
+          <div className={styles.date}>{formattedDate}</div>
+        </div>
+        <div className={styles.priority}>
+          {priorityLabel}
+        </div>
       </div>
-      <div className={styles.location}>{request.location}</div>
-      <div className={styles.issueType}>Тип: {issueTypeLabel}</div>
-      <div className={styles.date}>{formattedDate}</div>
     </div>
   )
 }
