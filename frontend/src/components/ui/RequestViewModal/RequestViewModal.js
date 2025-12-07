@@ -781,20 +781,35 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
             </div>
           )}
 
-          {/* Комментарий - только для АХО */}
-          {isAHO && (
-            <div className={styles.fieldGroup}>
-              {(() => {
-                const commentValue = isEditing 
-                  ? editedData.comment 
-                  : (request.comments && request.comments.length > 0 
-                      ? request.comments[request.comments.length - 1].content || '' 
-                      : '')
-                
-                return commentValue ? (
-                  <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
-                    <label className={styles.label}>Комментарий</label>
-                    {isEditing ? (
+          {/* Комментарий - видим для всех, редактирование только для АХО */}
+          <div className={styles.fieldGroup}>
+            {(() => {
+              const commentValue = isAHO && isEditing 
+                ? editedData.comment 
+                : (request.comments && request.comments.length > 0 
+                    ? request.comments[request.comments.length - 1].content || '' 
+                    : '')
+              
+              return commentValue ? (
+                <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
+                  <label className={styles.label}>Комментарий</label>
+                  {isAHO && isEditing ? (
+                    <textarea
+                      className={styles.input}
+                      value={editedData.comment}
+                      onChange={(e) => handleChange('comment', e.target.value)}
+                      placeholder="Комментарий"
+                      rows={4}
+                    />
+                  ) : (
+                    <div className={styles.value}>{commentValue}</div>
+                  )}
+                </div>
+              ) : (
+                <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
+                  {isAHO && isEditing ? (
+                    <>
+                      <label className={styles.label}>Комментарий</label>
                       <textarea
                         className={styles.input}
                         value={editedData.comment}
@@ -802,31 +817,14 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
                         placeholder="Комментарий"
                         rows={4}
                       />
-                    ) : (
-                      <div className={styles.value}>{commentValue}</div>
-                    )}
-                  </div>
-                ) : (
-                  <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
-                    {isEditing ? (
-                      <>
-                        <label className={styles.label}>Комментарий</label>
-                        <textarea
-                          className={styles.input}
-                          value={editedData.comment}
-                          onChange={(e) => handleChange('comment', e.target.value)}
-                          placeholder="Комментарий"
-                          rows={4}
-                        />
-                      </>
-                    ) : (
-                      <div className={styles.placeholder}>Комментарий</div>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-          )}
+                    </>
+                  ) : (
+                    <div className={styles.placeholder}>Комментарий</div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
 
           {request.attachments && request.attachments.length > 0 && (
             <div className={styles.fieldGroup}>

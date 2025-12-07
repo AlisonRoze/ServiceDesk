@@ -50,9 +50,23 @@ $border-width: 2px;
 
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.requestId {
+  font-family: Rubik;
+  font-weight: 400;
+  font-style: Regular;
+  font-size: 18px;
+  color: color.adjust($text-color, $lightness: 50%);
+}
+
 .priority {
   font-weight: 600;
-  margin-bottom: 8px;
   font-family: Rubik;
   font-weight: 400;
   font-style: Regular;

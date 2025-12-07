@@ -61,8 +61,11 @@ export default function RequestCard({ request, isDragging, onDragStart, onDragEn
       onClick={handleClick}
       style={{ cursor: onClick ? 'pointer' : (draggable ? 'grab' : 'default') }}
     >
-      <div className={`${styles.priority} ${styles[request.priority]} ${isCompleted ? styles.completed : ''}`}>
-        {priorityLabel}
+      <div className={styles.header}>
+        <div className={styles.requestId}>Заявка #{request.id}</div>
+        <div className={`${styles.priority} ${styles[request.priority]} ${isCompleted ? styles.completed : ''}`}>
+          {priorityLabel}
+        </div>
       </div>
       <div className={styles.location}>{request.location}</div>
       <div className={styles.issueType}>Тип: {issueTypeLabel}</div>
