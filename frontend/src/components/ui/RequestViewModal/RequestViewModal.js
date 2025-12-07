@@ -44,6 +44,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
   const modalRef = useRef(null)
   const issueTypeDropdownRef = useRef(null)
   const performerDropdownRef = useRef(null)
+  const editedDataRef = useRef({})
   const { userRole, user } = useUserAuth()
   const isAHO = userRole === 'aho'
   
@@ -54,12 +55,18 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
   const [issueTypeOpen, setIssueTypeOpen] = useState(false)
   const [performerOpen, setPerformerOpen] = useState(false)
   const [users, setUsers] = useState([])
+  
+  // Синхронизируем ref с state для доступа к актуальным данным в cleanup функциях
+  useEffect(() => {
+    editedDataRef.current = editedData
+  }, [editedData])
 
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
         // Сохраняем данные перед закрытием для АХО
-        if (isAHO && editedData && Object.keys(editedData).length > 0) {
+        const currentEditedData = editedDataRef.current
+        if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
           saveRequestData()
         }
         onClose()
@@ -75,14 +82,16 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
       document.removeEventListener('keydown', handleEscape)
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen, onClose, isAHO, editedData])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, onClose, isAHO])
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const handleClickOutside = async (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) {
         // Сохраняем данные перед закрытием для АХО
-        if (isAHO && editedData && Object.keys(editedData).length > 0) {
-          saveRequestData()
+        const currentEditedData = editedDataRef.current
+        if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
+          await saveRequestData()
         }
         onClose()
       }
@@ -101,11 +110,14 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
       // Сохраняем данные при размонтировании компонента для АХО
-      if (isAHO && editedData && Object.keys(editedData).length > 0) {
-        saveRequestData()
+      const currentEditedData = editedDataRef.current
+      if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
+        // Используем setTimeout чтобы дать время на выполнение асинхронной операции
+        saveRequestData().catch(console.error)
       }
     }
-  }, [isOpen, onClose, isAHO, editedData])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isAHO, onClose])
 
   // Загрузка списка пользователей для выбора исполнителя (только АХО)
   useEffect(() => {
@@ -193,6 +205,10 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
 
     setIsUpdatingStatus(true)
     try {
+      // Сначала сохраняем данные заявки (включая комментарий)
+      await saveRequestData()
+      
+      // Затем обновляем статус
       const response = await fetch(`${API_BASE_URL}/api/requests/${request.id}/status/`, {
         method: 'PATCH',
         headers: {
@@ -254,8 +270,13 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
     }
   }
 
-  const saveRequestData = async () => {
-    if (!request || !isAHO || !user || !editedData) return
+  const saveRequestData = async (dataToSave = null) => {
+    if (!request || !isAHO || !user) return
+
+    // Используем переданные данные или берем из ref (который всегда актуален)
+    const currentData = dataToSave || editedDataRef.current
+    
+    if (!currentData || Object.keys(currentData).length === 0) return
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/requests/${request.id}/update/`, {
@@ -265,15 +286,15 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
         },
         body: JSON.stringify({
           user_id: user.id,
-          priority: editedData.priority,
-          issueType: editedData.issueType,
-          address: editedData.address,
-          locationDescription: editedData.locationDescription,
-          employeeLocation: editedData.employeeLocation,
-          problemDescription: editedData.problemDescription,
-          performerId: editedData.performerId,
-          expenses: editedData.expenses,
-          comment: editedData.comment,
+          priority: currentData.priority,
+          issueType: currentData.issueType,
+          address: currentData.address,
+          locationDescription: currentData.locationDescription,
+          employeeLocation: currentData.employeeLocation,
+          problemDescription: currentData.problemDescription,
+          performerId: currentData.performerId,
+          expenses: currentData.expenses,
+          comment: currentData.comment,
         }),
       })
 
@@ -323,10 +344,11 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           <h2 className={styles.title}>Заявка</h2>
           <button 
             className={styles.closeButton} 
-            onClick={() => {
+            onClick={async () => {
               // Сохраняем данные перед закрытием для АХО
-              if (isAHO && editedData && Object.keys(editedData).length > 0) {
-                saveRequestData()
+              const currentEditedData = editedDataRef.current
+              if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
+                await saveRequestData()
               }
               onClose()
             }} 

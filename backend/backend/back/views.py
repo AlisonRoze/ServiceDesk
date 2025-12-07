@@ -682,12 +682,14 @@ def update_request(request, request_id):
 
         if 'comment' in json_data:
             comment_text = json_data.get('comment', '').strip()
+            # Сохраняем комментарий только если он не пустой и отличается от последнего комментария
             if comment_text:
-                comment, created = Comment.objects.get_or_create(
-                    content=comment_text,
-                    defaults={}
-                )
-                if created or comment not in req.comments.all():
+                # Получаем последний комментарий к заявке
+                last_comment = req.comments.order_by('-created_at').first()
+                
+                # Создаем новый комментарий только если текст отличается от последнего
+                if not last_comment or last_comment.content.strip() != comment_text:
+                    comment = Comment.objects.create(content=comment_text)
                     req.comments.add(comment)
 
         req.save()
