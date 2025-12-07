@@ -40,37 +40,39 @@ export default function RequestsPage() {
   const { userRole, user } = useUserAuth()
   const router = useRouter()
 
-  // Загрузка заявок с сервера
-  useEffect(() => {
-    const loadRequests = async () => {
-      if (!user || !user.id) {
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/requests/${user.id}/`)
-        
-        if (!response.ok) {
-          throw new Error('Ошибка при загрузке заявок')
-        }
-
-        const data = await response.json()
-        
-        if (data.success && data.requests) {
-          setRequests(data.requests)
-        } else {
-          setRequests([])
-        }
-      } catch (error) {
-        console.error('Ошибка при загрузке заявок:', error)
-        setRequests([])
-      } finally {
-        setIsLoading(false)
-      }
+  const loadRequests = async () => {
+    if (!user || !user.id) {
+      setIsLoading(false)
+      return
     }
 
-    loadRequests()
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/requests/${user.id}/`)
+      
+      if (!response.ok) {
+        throw new Error('Ошибка при загрузке заявок')
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.requests) {
+        setRequests(data.requests)
+      } else {
+        setRequests([])
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке заявок:', error)
+      setRequests([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Загрузка заявок с сервера
+  useEffect(() => {
+    if (user && user.id) {
+      loadRequests()
+    }
   }, [user])
 
   const statusConfig = statusConfigs[userRole] || statusConfigs.employee
@@ -195,6 +197,11 @@ export default function RequestsPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setSelectedRequest(null)
+    // Перезагружаем заявки после закрытия модального окна
+    if (user && user.id) {
+      setIsLoading(true)
+      loadRequests()
+    }
   }
 
   if (isLoading) {

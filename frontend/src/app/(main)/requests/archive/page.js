@@ -82,6 +82,37 @@ export default function ArchivePage() {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
 
+  // Функция для фильтрации по дате
+  const filterByPeriod = (requests, periodValue) => {
+    if (!periodValue) return requests
+
+    const now = new Date()
+    let startDate = new Date()
+
+    switch (periodValue) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        break
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+        break
+      case 'quarter':
+        const currentQuarter = Math.floor(now.getMonth() / 3)
+        startDate = new Date(now.getFullYear(), currentQuarter * 3, 1)
+        break
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1)
+        break
+      default:
+        return requests
+    }
+
+    return requests.filter(request => {
+      const requestDate = new Date(request.createdAt)
+      return requestDate >= startDate && requestDate <= now
+    })
+  }
+
   // Загрузка архивных заявок с сервера
   useEffect(() => {
     const loadArchiveRequests = async () => {
@@ -102,13 +133,14 @@ export default function ArchivePage() {
         
         if (data.success && data.requests) {
           // Фильтруем только завершенные заявки
-          const completedRequests = data.requests.filter(req => req.status === 'completed')
+          let filtered = data.requests.filter(req => req.status === 'completed')
           
-          // Применяем фильтры
-          let filtered = completedRequests
+          // Применяем фильтр по периоду
+          if (period) {
+            filtered = filterByPeriod(filtered, period)
+          }
           
-          // Здесь можно добавить логику фильтрации по периоду, региону, городу, офису
-          // Пока просто показываем все завершенные заявки
+          // Здесь можно добавить логику фильтрации по региону, городу, офису
           
           setRequests(filtered)
           setHasMore(false) // Пока без пагинации

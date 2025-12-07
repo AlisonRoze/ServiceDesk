@@ -199,6 +199,48 @@ def upload_avatar(request, user_id):
         })
 
     except Exception as e:
+            return JsonResponse(
+                {'error': f'Ошибка сервера: {str(e)}'},
+                status=500
+            )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_users(request):
+    """API endpoint для получения списка пользователей"""
+    try:
+        # Получаем параметр role из запроса (если указан)
+        role_filter = request.GET.get('role', None)
+        
+        # Получаем пользователей с фильтрацией по роли, если указан
+        if role_filter:
+            # Фильтруем по роли (case-insensitive)
+            users = User.objects.filter(
+                role__iexact=role_filter
+            ).order_by('last_name', 'first_name')
+        else:
+            # Получаем всех пользователей
+            users = User.objects.all().order_by('last_name', 'first_name')
+        
+        # Формируем список пользователей
+        users_list = []
+        for user in users:
+            users_list.append({
+                'id': user.id_user,
+                'first_name': user.first_name or '',
+                'last_name': user.last_name or '',
+                'middle_name': user.middle_name or '',
+                'username': user.username or '',
+                'role': user.role or '',
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'users': users_list
+        })
+        
+    except Exception as e:
         return JsonResponse(
             {'error': f'Ошибка сервера: {str(e)}'},
             status=500
@@ -428,8 +470,8 @@ def get_requests(request, user_id):
 
         # Получаем заявки пользователя
         requests = Request.objects.filter(user=user).select_related(
-            'failure_type', 'status', 'office_address', 'performer'
-        ).order_by('-created_at')
+            'failure_type', 'status', 'office_address', 'performer', 'expense'
+        ).prefetch_related('comments').order_by('-created_at')
 
         # Формируем список заявок
         requests_list = []
@@ -476,6 +518,24 @@ def get_requests(request, user_id):
                     'username': req.performer.username or '',
                 }
             
+            # Формируем данные о затратах
+            expense_data = None
+            if req.expense:
+                expense_data = {
+                    'id': req.expense.id_table,
+                    'name': req.expense.expense_name or '',
+                    'amount': float(req.expense.amount) if req.expense.amount else 0,
+                }
+            
+            # Формируем список комментариев
+            comments_list = []
+            for comment in req.comments.all():
+                comments_list.append({
+                    'id': comment.id_comment,
+                    'content': comment.content or '',
+                    'createdAt': comment.created_at.isoformat() if comment.created_at else '',
+                })
+            
             requests_list.append({
                 'id': str(req.id_request),
                 'priority': priority,
@@ -489,11 +549,142 @@ def get_requests(request, user_id):
                 'createdAt': req.created_at.isoformat(),
                 'attachments': attachments,
                 'performer': performer_data,
+                'expense': expense_data,
+                'comments': comments_list,
             })
 
         return JsonResponse({
             'success': True,
             'requests': requests_list
+        })
+
+    except Exception as e:
+            return JsonResponse(
+                {'error': f'Ошибка сервера: {str(e)}'},
+                status=500
+            )
+
+@csrf_exempt
+@require_http_methods(["PATCH", "PUT"])
+def update_request(request, request_id):
+    """API endpoint для обновления данных заявки"""
+    try:
+        # Получаем данные из запроса
+        try:
+            json_data = json.loads(request.body)
+            user_id = json_data.get('user_id')
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {'error': 'Неверный формат данных'},
+                status=400
+            )
+
+        if not user_id:
+            return JsonResponse(
+                {'error': 'ID пользователя обязателен'},
+                status=400
+            )
+
+        # Поиск заявки
+        try:
+            req = Request.objects.get(id_request=request_id)
+        except Request.DoesNotExist:
+            return JsonResponse(
+                {'error': 'Заявка не найдена'},
+                status=404
+            )
+
+        # Проверяем, что пользователь является сотрудником АХО
+        try:
+            user = User.objects.get(id_user=user_id)
+            if user.role and 'ахо' not in user.role.lower() and 'aho' not in user.role.lower():
+                return JsonResponse(
+                    {'error': 'Только сотрудники АХО могут редактировать заявки'},
+                    status=403
+                )
+        except User.DoesNotExist:
+            return JsonResponse(
+                {'error': 'Пользователь не найден'},
+                status=404
+            )
+
+        # Обновляем поля заявки
+        if 'priority' in json_data:
+            priority_key = json_data.get('priority')
+            urgency = PRIORITY_MAPPING.get(priority_key, req.urgency)
+            req.urgency = urgency
+
+        if 'issueType' in json_data:
+            issue_type_key = json_data.get('issueType')
+            issue_type_name = ISSUE_TYPE_MAPPING.get(issue_type_key, 'Другое')
+            failure_type, created = TypeOfFailure.objects.get_or_create(
+                name=issue_type_name,
+                defaults={'description': f'Тип поломки: {issue_type_name}'}
+            )
+            req.failure_type = failure_type
+
+        if 'locationDescription' in json_data:
+            req.office_location = json_data.get('locationDescription', req.office_location)
+
+        if 'employeeLocation' in json_data:
+            req.employee_location = json_data.get('employeeLocation', req.employee_location)
+
+        if 'problemDescription' in json_data:
+            req.description = json_data.get('problemDescription', req.description)
+
+        if 'performerId' in json_data:
+            performer_id = json_data.get('performerId')
+            if performer_id:
+                try:
+                    performer = User.objects.get(id_user=performer_id)
+                    req.performer = performer
+                except User.DoesNotExist:
+                    pass
+            else:
+                req.performer = None
+
+        if 'expenses' in json_data:
+            expenses = json_data.get('expenses', [])
+            if expenses and len(expenses) > 0:
+                # Берем первую непустую строку затрат
+                first_expense = None
+                for exp in expenses:
+                    if exp.get('name') or exp.get('amount'):
+                        first_expense = exp
+                        break
+                
+                if first_expense:
+                    expense_name = first_expense.get('name', 'Заявка')
+                    expense_amount = first_expense.get('amount', '0')
+                    try:
+                        expense_amount = float(expense_amount) if expense_amount else 0
+                    except (ValueError, TypeError):
+                        expense_amount = 0
+                    
+                    expense, created = Table.objects.get_or_create(
+                        expense_name=expense_name,
+                        defaults={'amount': expense_amount}
+                    )
+                    if not created:
+                        expense.amount = expense_amount
+                        expense.save()
+                    req.expense = expense
+
+        if 'comment' in json_data:
+            comment_text = json_data.get('comment', '').strip()
+            if comment_text:
+                comment, created = Comment.objects.get_or_create(
+                    content=comment_text,
+                    defaults={}
+                )
+                if created or comment not in req.comments.all():
+                    req.comments.add(comment)
+
+        req.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Заявка успешно обновлена'
         })
 
     except Exception as e:
