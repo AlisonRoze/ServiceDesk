@@ -31,7 +31,7 @@ function formatDate(dateString) {
   return `${day} ${month}, ${hours}:${minutes}`
 }
 
-export default function RequestCard({ request, isDragging, onDragStart, onDragEnd, onClick }) {
+export default function RequestCard({ request, isDragging, onDragStart, onDragEnd, onClick, draggable = true }) {
   const priorityLabel = priorityLabels[request.priority] || request.priority
   const issueTypeLabel = issueTypeLabels[request.issueType] || request.issueType
   const formattedDate = formatDate(request.createdAt)
@@ -44,14 +44,22 @@ export default function RequestCard({ request, isDragging, onDragStart, onDragEn
     }
   }
 
+  const handleDragStart = (e) => {
+    if (draggable && onDragStart) {
+      onDragStart(e, request)
+    } else {
+      e.preventDefault()
+    }
+  }
+
   return (
     <div
       className={`${styles.requestCard} ${isDragging ? styles.dragging : ''} ${isCompleted ? styles.completed : ''} ${styles[request.priority]}`}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      draggable={draggable}
+      onDragStart={handleDragStart}
+      onDragEnd={draggable ? onDragEnd : undefined}
       onClick={handleClick}
-      style={{ cursor: onClick ? 'pointer' : 'grab' }}
+      style={{ cursor: onClick ? 'pointer' : (draggable ? 'grab' : 'default') }}
     >
       <div className={`${styles.priority} ${styles[request.priority]} ${isCompleted ? styles.completed : ''}`}>
         {priorityLabel}

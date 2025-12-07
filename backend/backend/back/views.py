@@ -468,10 +468,20 @@ def get_requests(request, user_id):
                 status=404
             )
 
-        # Получаем заявки пользователя
-        requests = Request.objects.filter(user=user).select_related(
-            'failure_type', 'status', 'office_address', 'performer', 'expense'
-        ).prefetch_related('comments').order_by('-created_at')
+        # Получаем параметр фильтра из запроса
+        filter_type = request.GET.get('filter', 'my_requests')
+        
+        # Фильтруем заявки в зависимости от типа фильтра
+        if filter_type == 'i_am_performer':
+            # Заявки, где пользователь является исполнителем
+            requests = Request.objects.filter(performer=user).select_related(
+                'failure_type', 'status', 'office_address', 'performer', 'expense', 'user'
+            ).prefetch_related('comments').order_by('-created_at')
+        else:
+            # Заявки, которые создал пользователь (по умолчанию)
+            requests = Request.objects.filter(user=user).select_related(
+                'failure_type', 'status', 'office_address', 'performer', 'expense'
+            ).prefetch_related('comments').order_by('-created_at')
 
         # Формируем список заявок
         requests_list = []
@@ -822,6 +832,22 @@ def update_request_status(request, request_id):
                 status=400
             )
 
+        # Поиск пользователя
+        try:
+            user = User.objects.get(id_user=user_id)
+        except User.DoesNotExist:
+            return JsonResponse(
+                {'error': 'Пользователь не найден'},
+                status=404
+            )
+
+        # Проверяем, что пользователь является сотрудником АХО
+        if not user.role or ('ахо' not in user.role.lower() and 'aho' not in user.role.lower()):
+            return JsonResponse(
+                {'error': 'Только сотрудники АХО могут изменять статус заявок'},
+                status=403
+            )
+
         # Поиск заявки
         try:
             req = Request.objects.get(id_request=request_id)
@@ -829,13 +855,6 @@ def update_request_status(request, request_id):
             return JsonResponse(
                 {'error': 'Заявка не найдена'},
                 status=404
-            )
-
-        # Проверяем, что пользователь является владельцем заявки
-        if req.user.id_user != int(user_id):
-            return JsonResponse(
-                {'error': 'Нет доступа к этой заявке'},
-                status=403
             )
 
         # Получаем старый статус для сравнения

@@ -37,17 +37,22 @@ export default function RequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   
-  const { userRole, user } = useUserAuth()
+  const { userRole, user, isAHO } = useUserAuth()
   const router = useRouter()
+  
+  // Определяем, может ли пользователь перемещать заявки (только АХО)
+  const canDragRequests = isAHO
 
-  const loadRequests = async () => {
+  const loadRequests = async (currentFilter = filterType) => {
     if (!user || !user.id) {
       setIsLoading(false)
       return
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/requests/${user.id}/`)
+      // Добавляем параметр фильтра в запрос
+      const filterParam = currentFilter === 'i_am_performer' ? '?filter=i_am_performer' : '?filter=my_requests'
+      const response = await fetch(`${API_BASE_URL}/api/requests/${user.id}/${filterParam}`)
       
       if (!response.ok) {
         throw new Error('Ошибка при загрузке заявок')
@@ -73,7 +78,8 @@ export default function RequestsPage() {
     if (user && user.id) {
       loadRequests()
     }
-  }, [user])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, filterType])
 
   const statusConfig = statusConfigs[userRole] || statusConfigs.employee
 
@@ -101,12 +107,21 @@ export default function RequestsPage() {
   }, [isFilterDropdownOpen])
 
   const handleDragStart = (e, request) => {
+    // Разрешаем drag только для пользователей АХО
+    if (!canDragRequests) {
+      e.preventDefault()
+      return
+    }
     setDraggedRequest(request)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/html', request.id)
   }
 
   const handleDragOver = (e, status) => {
+    // Разрешаем drop только для пользователей АХО
+    if (!canDragRequests) {
+      return
+    }
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDraggedOverColumn(status)
@@ -117,6 +132,10 @@ export default function RequestsPage() {
   }
 
   const handleDrop = async (e, targetStatus) => {
+    // Разрешаем drop только для пользователей АХО
+    if (!canDragRequests) {
+      return
+    }
     e.preventDefault()
     setDraggedOverColumn(null)
 
@@ -177,6 +196,10 @@ export default function RequestsPage() {
   }
 
   const getRequestsByStatus = (status) => {
+    // Для обычного пользователя в колонке "Активные" показываем все статусы, кроме "Выполнена" и "На доработке"
+    if (userRole === 'employee' && status === 'new') {
+      return requests.filter((req) => req.status !== 'completed' && req.status !== 'revision')
+    }
     return requests.filter((req) => req.status === status)
   }
 
@@ -187,6 +210,11 @@ export default function RequestsPage() {
   const handleFilterChange = (value) => {
     setFilterType(value)
     setIsFilterDropdownOpen(false)
+    // Перезагружаем заявки при изменении фильтра
+    if (user && user.id) {
+      setIsLoading(true)
+      loadRequests(value)
+    }
   }
 
   const handleRequestClick = (request) => {
@@ -276,10 +304,10 @@ export default function RequestsPage() {
         return (
           <div
             key={config.key}
-            className={`${styles.column} ${isDraggedOver ? styles.dragOver : ''}`}
-            onDragOver={(e) => handleDragOver(e, config.key)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, config.key)}
+            className={`${styles.column} ${isDraggedOver ? styles.dragOver : ''} ${!canDragRequests ? styles.noDrag : ''}`}
+            onDragOver={canDragRequests ? (e) => handleDragOver(e, config.key) : undefined}
+            onDragLeave={canDragRequests ? handleDragLeave : undefined}
+            onDrop={canDragRequests ? (e) => handleDrop(e, config.key) : undefined}
           >
             <div className={styles.columnHeader}>
               <h2 className={styles.columnTitle}>{config.label}</h2>
@@ -293,8 +321,9 @@ export default function RequestsPage() {
                     key={request.id}
                     request={request}
                     isDragging={draggedRequest?.id === request.id}
-                    onDragStart={(e) => handleDragStart(e, request)}
-                    onDragEnd={handleDragEnd}
+                    draggable={canDragRequests}
+                    onDragStart={canDragRequests ? (e) => handleDragStart(e, request) : undefined}
+                    onDragEnd={canDragRequests ? handleDragEnd : undefined}
                     onClick={handleRequestClick}
                   />
                 ))
