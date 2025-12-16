@@ -3,9 +3,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
+from django.db.models import Q
 import json
 import os
-from .models import User, Request, TypeOfFailure, Status, Office, Table, Comment, Notification
+from .models import User, Request, TypeOfFailure, Status, Office, Table, Comment, Notification, Load
 
 
 @csrf_exempt
@@ -247,6 +248,43 @@ def get_users(request):
         )
 
 
+def find_best_performer(office: Office, urgency: str | None = None):
+    """
+    Выбирает наилучшего исполнителя (сотрудника АХО) для заявки.
+    Приоритет:
+    1. Сотрудники АХО из того же офиса, где возникла проблема.
+    2. Среди кандидатов выбирается сотрудник с наименьшей загрузкой (current_tasks_count).
+    3. При равной загрузке выбирается сотрудник с наименьшим id (стабильный выбор).
+    """
+    # Находим всех сотрудников АХО (роль содержит "ахо" или "aho")
+    aho_users = User.objects.filter(
+        Q(role__icontains='ахо') | Q(role__icontains='aho')
+    )
+
+    if not aho_users.exists():
+        return None
+
+    # Сначала пробуем сотрудников из того же офиса
+    same_office_candidates = aho_users.filter(office=office) if office else User.objects.none()
+    candidates = same_office_candidates if same_office_candidates.exists() else aho_users
+
+    # Загружаем информацию о загрузке
+    loads = {
+        load.staff_id: load
+        for load in Load.objects.filter(staff__in=candidates)
+    }
+
+    def load_score(user: User) -> int:
+        load_obj = loads.get(user.id_user)
+        if not load_obj or load_obj.current_tasks_count is None:
+            return 0
+        return load_obj.current_tasks_count
+
+    # Выбираем сотрудника с минимальной загрузкой
+    best_user = min(candidates, key=lambda u: (load_score(u), u.id_user))
+    return best_user
+
+
 # Маппинг типов поломок с фронтенда на бэкенд
 ISSUE_TYPE_MAPPING = {
     'access': 'Доступ',
@@ -328,8 +366,14 @@ def create_request(request):
         issue_type_key = request.POST.get('issueType')
         priority_key = request.POST.get('priority')
         description = request.POST.get('problemDescription')
-        office_location = request.POST.get('locationDescription')
-        employee_location = request.POST.get('employeeLocation', '')
+        # Адрес офиса (поле "Адрес" на форме)
+        address = request.POST.get('address', '').strip()
+        # Описание локации внутри офиса (опционально)
+        location_description = request.POST.get('locationDescription', '').strip()
+        # В БД поле office_location теперь заполняем из поля "Адрес"
+        # (если по какой-то причине адрес не указан, используем описание локации как запасной вариант)
+        office_location = address or location_description
+        employee_location = request.POST.get('employeeLocation', '').strip()
 
         # Валидация обязательных полей
         if not issue_type_key or not priority_key or not description or not office_location:
@@ -368,7 +412,7 @@ def create_request(request):
         # Маппинг приоритета
         urgency = PRIORITY_MAPPING.get(priority_key, 'Средняя')
 
-        # Создаем заявку
+        # Создаем заявку (без исполнителя, назначим ниже автоматически)
         new_request = Request.objects.create(
             user=user,
             failure_type=failure_type,
@@ -380,6 +424,31 @@ def create_request(request):
             expense=expense,
             status=status
         )
+
+        # Автоматическое назначение исполнителя (только сотрудники АХО)
+        performer = find_best_performer(office_address, urgency)
+        if performer:
+            new_request.performer = performer
+            new_request.save(update_fields=['performer'])
+
+            # Обновляем загрузку исполнителя
+            load_obj, _ = Load.objects.get_or_create(
+                staff=performer,
+                defaults={
+                    'current_tasks_count': 0,
+                    'current_tasks': '',
+                    'urgency': urgency,
+                },
+            )
+            # Увеличиваем счетчик задач
+            load_obj.current_tasks_count = (load_obj.current_tasks_count or 0) + 1
+            # Добавляем id заявки в текстовое поле (обратная совместимость)
+            if load_obj.current_tasks:
+                load_obj.current_tasks = f"{load_obj.current_tasks}, {new_request.id_request}"
+            else:
+                load_obj.current_tasks = str(new_request.id_request)
+            load_obj.urgency = urgency
+            load_obj.save()
 
         # Обработка загрузки изображений
         if 'attachments' in request.FILES:
@@ -879,6 +948,17 @@ def update_request_status(request, request_id):
         # Обновляем статус заявки
         req.status = new_status
         req.save()
+
+        # Если заявка завершена или отправлена в архивный статус,
+        # уменьшаем загрузку исполнителя
+        if new_status_key in ('completed', 'awaiting_purchase') and req.performer:
+            try:
+                load_obj = Load.objects.get(staff=req.performer)
+                if load_obj.current_tasks_count:
+                    load_obj.current_tasks_count = max(0, load_obj.current_tasks_count - 1)
+                    load_obj.save(update_fields=['current_tasks_count'])
+            except Load.DoesNotExist:
+                pass
 
         # Создаем уведомление, если статус изменился
         if old_status != new_status_name:

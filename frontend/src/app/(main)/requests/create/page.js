@@ -121,6 +121,9 @@ export default function CreateRequestPage() {
       formData.append('issueType', data.issueType)
       formData.append('priority', data.priority)
       formData.append('problemDescription', data.problemDescription)
+      // Адрес офиса (основное поле для office_location на бэкенде)
+      formData.append('address', data.address)
+      // Описание локации внутри офиса (опционально)
       formData.append('locationDescription', data.locationDescription)
       
       if (data.employeeLocation) {
