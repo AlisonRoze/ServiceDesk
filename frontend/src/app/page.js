@@ -103,8 +103,6 @@ export default function HomePage() {
               {isLoading ? 'Вход...' : 'Войти'}
             </button>
             <div className={styles.signUpRow}>
-              <span>Нет аккаунта?</span>
-              <a href="#" className={styles.signUpLink}>Зарегистрироваться</a>
             </div>
           </form>
         </div>

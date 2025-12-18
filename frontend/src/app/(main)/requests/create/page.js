@@ -32,12 +32,57 @@ export default function CreateRequestPage() {
   const [attachedImages, setAttachedImages] = useState([])
   const [attachedPreviews, setAttachedPreviews] = useState([])
   const fileInputRef = useRef(null)
+  const [offices, setOffices] = useState([])
+  const [selectedOfficeId, setSelectedOfficeId] = useState('')
 
   const handleTextareaInput = (e) => {
     const el = e.target
     el.style.height = 'auto'
     el.style.height = Math.max(68, el.scrollHeight) + 'px'
   }
+
+  // Загружаем список офисов и подставляем офис пользователя по умолчанию
+  useEffect(() => {
+    const loadOffices = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/offices/filters/`)
+        if (!response.ok) {
+          throw new Error('Ошибка при загрузке списка офисов')
+        }
+        const data = await response.json()
+        if (data.success && Array.isArray(data.offices)) {
+          setOffices(data.offices)
+
+          // Пытаемся определить офис пользователя по адресу из localStorage
+          if (typeof window !== 'undefined') {
+            const userData = localStorage.getItem('user')
+            if (userData) {
+              try {
+                const user = JSON.parse(userData)
+                const userOfficeAddress = user?.officeAddress
+                if (userOfficeAddress) {
+                  const matchedOffice = data.offices.find(
+                    (o) => o.address === userOfficeAddress
+                  )
+                  if (matchedOffice) {
+                    const idStr = String(matchedOffice.id)
+                    setSelectedOfficeId(idStr)
+                    setValue('address', matchedOffice.address, { shouldValidate: true })
+                  }
+                }
+              } catch (e) {
+                console.error('Ошибка при разборе данных пользователя:', e)
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке офисов:', error)
+      }
+    }
+
+    loadOffices()
+  }, [setValue])
 
   useEffect(() => {
     function onDocClick(e) {
@@ -123,6 +168,9 @@ export default function CreateRequestPage() {
       formData.append('problemDescription', data.problemDescription)
       // Адрес офиса (основное поле для office_location на бэкенде)
       formData.append('address', data.address)
+      if (selectedOfficeId) {
+        formData.append('office_id', selectedOfficeId)
+      }
       // Описание локации внутри офиса (опционально)
       formData.append('locationDescription', data.locationDescription)
       
@@ -214,20 +262,51 @@ export default function CreateRequestPage() {
           {errors.priority && <span className={styles.error}>{errors.priority.message}</span>}
         </div>
 
-        {/* Адрес */}
+        {/* Офис и адрес (офис выбирается из выпадающего списка, адрес подставляется автоматически) */}
         <div className={styles.fieldGroup}>
+          <select
+            id="office"
+            className={`${styles.input} ${styles.field40}`}
+            value={selectedOfficeId}
+            onChange={(e) => {
+              const newId = e.target.value
+              setSelectedOfficeId(newId)
+              const office = offices.find((o) => String(o.id) === String(newId))
+              if (office) {
+                setValue('address', office.address, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+              } else {
+                setValue('address', '', {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+              }
+            }}
+          >
+            <option value="">Выберите офис</option>
+            {offices.map((office) => (
+              <option key={office.id} value={office.id}>
+                {office.address}
+              </option>
+            ))}
+          </select>
+          {/* Скрытое поле адреса, которое уходит на бэкенд */}
           <input
-            id="address"
-            type="text"
-            placeholder="Адрес"
+            type="hidden"
             {...register('address', {
               required: 'Адрес обязателен',
               minLength: { value: 3, message: 'Минимум 3 символа' },
               maxLength: { value: 200, message: 'Максимум 200 символов' },
             })}
-            className={`${styles.input} ${styles.field40}`}
           />
-          {errors.address && <span className={styles.error}>{errors.address.message}</span>}
+          {errors.address && (
+            <span className={styles.error}>{errors.address.message}</span>
+          )}
+          <span className={styles.hint}>
+            Изначально выбран офис, к которому вы привязаны. При необходимости выберите другой адрес из списка.
+          </span>
         </div>
 
         {/* Место сотрудника (необязательно) */}

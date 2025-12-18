@@ -401,11 +401,21 @@ def create_request(request):
             defaults={'amount': 0}
         )
 
-        # Используем офис пользователя
-        office_address = user.office
+        # Определяем офис: приоритет — офис, выбранный пользователем в форме, затем офис пользователя
+        office_id = request.POST.get('office_id')
+        office_address = None
+        if office_id:
+            try:
+                office_address = Office.objects.get(id_office=int(office_id))
+            except (ValueError, TypeError, Office.DoesNotExist):
+                office_address = None
+
+        if office_address is None:
+            office_address = user.office
+
         if not office_address:
             return JsonResponse(
-                {'error': 'У пользователя не указан офис'},
+                {'error': 'У пользователя не указан офис и не выбран офис в форме'},
                 status=400
             )
 
