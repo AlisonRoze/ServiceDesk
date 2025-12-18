@@ -892,7 +892,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           )}
 
           <div className={styles.actions}>
-            {isAHO && (
+            {isAHO && request.status !== 'completed' && request.status !== 'archived' && (
               <>
                 <button 
                   className={styles.revisionBtn} 
