@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import styles from './page.module.scss'
 import ArchiveRequestCard from '@/components/ui/ArchiveRequestCard/ArchiveRequestCard'
 import { useUserAuth } from '@/context/UserAuthContext'
@@ -18,21 +17,6 @@ const periodOptions = [
   { value: 'year', label: 'Год' },
 ]
 
-const regionOptions = [
-  { value: '', label: 'Регион' },
-  // Здесь можно добавить динамические опции из API
-]
-
-const cityOptions = [
-  { value: '', label: 'Город' },
-  // Здесь можно добавить динамические опции из API
-]
-
-const officeOptions = [
-  { value: '', label: 'Офис' },
-  // Здесь можно добавить динамические опции из API
-]
-
 export default function ArchivePage() {
   const [requests, setRequests] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -46,6 +30,19 @@ export default function ArchivePage() {
   const [region, setRegion] = useState('')
   const [city, setCity] = useState('')
   const [office, setOffice] = useState('')
+
+  // Опции для фильтров (загружаются с бэкенда)
+  const [regionOptions, setRegionOptions] = useState([
+    { value: '', label: 'Регион' },
+  ])
+  const [cityOptions, setCityOptions] = useState([
+    { value: '', label: 'Город' },
+  ])
+  const [officeOptions, setOfficeOptions] = useState([
+    { value: '', label: 'Офис' },
+  ])
+  // Все офисы для каскадных фильтров
+  const [allOffices, setAllOffices] = useState([])
   
   // Состояния открытия выпадающих меню
   const [periodOpen, setPeriodOpen] = useState(false)
@@ -59,8 +56,7 @@ export default function ArchivePage() {
   const cityRef = useRef(null)
   const officeRef = useRef(null)
   
-  const { userRole, user } = useUserAuth()
-  const router = useRouter()
+  const { user } = useUserAuth()
 
   // Обработка кликов вне выпадающих меню
   useEffect(() => {
@@ -113,17 +109,102 @@ export default function ArchivePage() {
     })
   }
 
+  // Загрузка опций фильтров (регионы, города, офисы)
+  useEffect(() => {
+    const loadOfficeFilters = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/offices/filters/`)
+        if (!response.ok) {
+          throw new Error('Ошибка при загрузке фильтров офисов')
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          if (Array.isArray(data.regions)) {
+            setRegionOptions([
+              { value: '', label: 'Регион' },
+              ...data.regions.map((r) => ({ value: r, label: r })),
+            ])
+          }
+          if (Array.isArray(data.offices)) {
+            setAllOffices(data.offices)
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке фильтров офисов:', error)
+      }
+    }
+
+    loadOfficeFilters()
+  }, [])
+
+  // Обновляем список городов при изменении региона (каскадность)
+  useEffect(() => {
+    // Базовая опция
+    let citiesSet = new Set()
+
+    allOffices.forEach((officeItem) => {
+      if (!region || officeItem.region === region) {
+        if (officeItem.city) {
+          citiesSet.add(officeItem.city)
+        }
+      }
+    })
+
+    const citiesArray = Array.from(citiesSet).sort()
+    setCityOptions([
+      { value: '', label: 'Город' },
+      ...citiesArray.map((c) => ({ value: c, label: c })),
+    ])
+
+    // Если текущий выбранный город не подходит под новый регион — сбрасываем
+    if (region && city && !citiesSet.has(city)) {
+      setCity('')
+    }
+  }, [region, allOffices]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Обновляем список офисов при изменении региона/города (каскадность)
+  useEffect(() => {
+    const filteredOffices = allOffices.filter((officeItem) => {
+      if (region && officeItem.region !== region) return false
+      if (city && officeItem.city !== city) return false
+      return true
+    })
+
+    setOfficeOptions([
+      { value: '', label: 'Офис' },
+      ...filteredOffices.map((o) => ({
+        value: String(o.id),
+        label: o.name,
+      })),
+    ])
+
+    // Сбрасываем выбранный офис, если он не входит в отфильтрованный список
+    if (
+      office &&
+      !filteredOffices.some((o) => String(o.id) === String(office))
+    ) {
+      setOffice('')
+    }
+  }, [region, city, allOffices]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Загрузка архивных заявок с сервера
   useEffect(() => {
     const loadArchiveRequests = async () => {
-      if (!user || !user.id) {
-        setIsLoading(false)
-        return
-      }
-
       try {
-        // Фильтруем только завершенные заявки (архив)
-        const response = await fetch(`${API_BASE_URL}/api/requests/${user.id}/`)
+        // Берём только завершенные заявки (архив) для всех пользователей
+        // Фильтры по региону, городу и офису передаём как query-параметры
+        const params = new URLSearchParams()
+        if (region) params.append('region', region)
+        if (city) params.append('city', city)
+        if (office) params.append('office', office)
+
+        const queryString = params.toString()
+        const url = queryString
+          ? `${API_BASE_URL}/api/requests/archive/?${queryString}`
+          : `${API_BASE_URL}/api/requests/archive/`
+
+        const response = await fetch(url)
         
         if (!response.ok) {
           throw new Error('Ошибка при загрузке заявок')
@@ -131,17 +212,14 @@ export default function ArchivePage() {
 
         const data = await response.json()
         
-        if (data.success && data.requests) {
-          // Фильтруем только завершенные заявки
-          let filtered = data.requests.filter(req => req.status === 'completed')
+        if (data.success && Array.isArray(data.requests)) {
+          let filtered = data.requests
           
           // Применяем фильтр по периоду
           if (period) {
             filtered = filterByPeriod(filtered, period)
           }
-          
-          // Здесь можно добавить логику фильтрации по региону, городу, офису
-          
+
           setRequests(filtered)
           setHasMore(false) // Пока без пагинации
         } else {

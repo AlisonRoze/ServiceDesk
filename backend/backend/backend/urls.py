@@ -28,8 +28,10 @@ urlpatterns = [
     path('api/users/', views.get_users, name='get_users'),
     path('api/requests/create/', views.create_request, name='create_request'),
     path('api/requests/<int:user_id>/', views.get_requests, name='get_requests'),
+    path('api/requests/archive/', views.get_archive_requests, name='get_archive_requests'),
     path('api/requests/<int:request_id>/update/', views.update_request, name='update_request'),
     path('api/requests/<int:request_id>/status/', views.update_request_status, name='update_request_status'),
+    path('api/offices/filters/', views.get_office_filters, name='get_office_filters'),
     path('api/notifications/<int:user_id>/', views.get_notifications, name='get_notifications'),
     path('api/notifications/<int:notification_id>/read/', views.mark_notification_read, name='mark_notification_read'),
 ]

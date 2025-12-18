@@ -643,6 +643,175 @@ def get_requests(request, user_id):
                 status=500
             )
 
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_archive_requests(request):
+    """
+    Возвращает все заявки со статусом 'Выполнена' (архив) для всех пользователей.
+    Поддерживает фильтры по региону, городу и офису (ID офиса).
+    """
+    try:
+        from back.models import Request  # локальный импорт, чтобы избежать циклов
+
+        region = request.GET.get('region')
+        city = request.GET.get('city')
+        office_id = request.GET.get('office')
+
+        # Фильтруем только выполненные заявки
+        completed_status_names = [
+            name for name, key in STATUS_MAPPING.items() if key == 'completed'
+        ]
+
+        qs = Request.objects.filter(
+            status__name__in=completed_status_names
+        ).select_related(
+            'failure_type', 'status', 'office_address', 'performer', 'expense', 'user'
+        ).prefetch_related('comments').order_by('-created_at')
+
+        # Применяем фильтры по офису
+        if region:
+            qs = qs.filter(office_address__region=region)
+        if city:
+            qs = qs.filter(office_address__city=city)
+        if office_id:
+            qs = qs.filter(office_address__id_office=office_id)
+
+        requests_list = []
+        for req in qs:
+            priority = PRIORITY_REVERSE_MAPPING.get(req.urgency, 'medium')
+            issue_type = ISSUE_TYPE_REVERSE_MAPPING.get(req.failure_type.name, 'other')
+            status_key = STATUS_MAPPING.get(req.status.name, 'new')
+
+            location_parts = []
+            if req.office_location:
+                location_parts.append(req.office_location)
+            if req.employee_location:
+                location_parts.append(req.employee_location)
+            location = ', '.join(location_parts) if location_parts else 'Не указано'
+
+            # Вложения (как в get_requests)
+            from back.models import RequestAttachment
+            attachments = []
+            request_attachments = RequestAttachment.objects.filter(request=req)
+            for attachment in request_attachments:
+                if attachment.file:
+                    attachment_url = request.build_absolute_uri(attachment.file.url)
+                    attachments.append(attachment_url)
+            if not attachments and req.attachments:
+                attachment_url = request.build_absolute_uri(req.attachments.url)
+                attachments.append(attachment_url)
+
+            performer_data = None
+            if req.performer:
+                performer_data = {
+                    'id': req.performer.id_user,
+                    'first_name': req.performer.first_name or '',
+                    'last_name': req.performer.last_name or '',
+                    'middle_name': req.performer.middle_name or '',
+                    'username': req.performer.username or '',
+                }
+
+            expense_data = None
+            if req.expense:
+                expense_data = {
+                    'id': req.expense.id_table,
+                    'name': req.expense.expense_name or '',
+                    'amount': float(req.expense.amount) if req.expense.amount else 0,
+                }
+
+            comments_list = []
+            for comment in req.comments.all():
+                comments_list.append({
+                    'id': comment.id_comment,
+                    'content': comment.content or '',
+                    'createdAt': comment.created_at.isoformat() if comment.created_at else '',
+                })
+
+            office = req.office_address
+
+            requests_list.append({
+                'id': str(req.id_request),
+                'priority': priority,
+                'location': location,
+                'address': office.address if office else '',
+                'region': office.region if office else '',
+                'city': office.city if office else '',
+                'officeId': office.id_office if office else None,
+                'officeName': office.name if office else '',
+                'employeeLocation': req.employee_location or '',
+                'locationDescription': req.office_location or '',
+                'problemDescription': req.description or '',
+                'issueType': issue_type,
+                'status': status_key,
+                'createdAt': req.created_at.isoformat(),
+                'attachments': attachments,
+                'performer': performer_data,
+                'expense': expense_data,
+                'comments': comments_list,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'requests': requests_list,
+        })
+
+    except Exception as e:
+        return JsonResponse(
+            {'error': f'Ошибка сервера: {str(e)}'},
+            status=500
+        )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_office_filters(request):
+    """
+    Возвращает списки регионов, городов и офисов для фильтров в архиве.
+    """
+    try:
+        from back.models import Office
+
+        regions = list(
+            Office.objects.exclude(region__isnull=True)
+            .exclude(region__exact='')
+            .values_list('region', flat=True)
+            .distinct()
+            .order_by('region')
+        )
+
+        cities = list(
+            Office.objects.exclude(city__isnull=True)
+            .exclude(city__exact='')
+            .values_list('city', flat=True)
+            .distinct()
+            .order_by('city')
+        )
+
+        offices_qs = Office.objects.all().order_by('name')
+        offices = []
+        for office in offices_qs:
+            offices.append({
+                'id': office.id_office,
+                'name': office.name,
+                'region': office.region,
+                'city': office.city,
+                'address': office.address,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'regions': regions,
+            'cities': cities,
+            'offices': offices,
+        })
+
+    except Exception as e:
+        return JsonResponse(
+            {'error': f'Ошибка сервера: {str(e)}'},
+            status=500
+        )
+
 @csrf_exempt
 @require_http_methods(["PATCH", "PUT"])
 def update_request(request, request_id):
