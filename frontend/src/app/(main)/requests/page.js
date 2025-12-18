@@ -243,21 +243,14 @@ export default function RequestsPage() {
   return (
     <div className={styles.pageContainer}>
       <div className={styles.filtersContainer}>
-        <button 
-          className={styles.archiveButton}
-          onClick={handleArchiveClick}
-        >
-          <Image 
-            src="/assets/archive.svg" 
-            alt="Архив" 
-            width={20} 
-            height={20}
-            onError={(e) => {
-              e.target.style.display = 'none'
-            }}
-          />
-          Архив
-        </button>
+        {isAHO && (
+          <button 
+            className={styles.archiveButton}
+            onClick={handleArchiveClick}
+          >
+            Архив
+          </button>
+        )}
         
         <div className={styles.filterDropdown} ref={dropdownRef}>
           <button

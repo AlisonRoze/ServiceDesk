@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import styles from './page.module.scss'
 import ArchiveRequestCard from '@/components/ui/ArchiveRequestCard/ArchiveRequestCard'
 import { useUserAuth } from '@/context/UserAuthContext'
@@ -56,7 +57,15 @@ export default function ArchivePage() {
   const cityRef = useRef(null)
   const officeRef = useRef(null)
   
-  const { user } = useUserAuth()
+  const { user, isAHO } = useUserAuth()
+  const router = useRouter()
+
+  // Проверка доступа - только для АХО
+  useEffect(() => {
+    if (user && !isAHO) {
+      router.push('/requests')
+    }
+  }, [user, isAHO, router])
 
   // Обработка кликов вне выпадающих меню
   useEffect(() => {
@@ -258,6 +267,10 @@ export default function ArchivePage() {
         <div style={{ padding: '2rem', textAlign: 'center' }}>Загрузка архива...</div>
       </div>
     )
+  }
+
+  if (!isAHO) {
+    return null
   }
 
   return (

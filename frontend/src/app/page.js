@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import InputField from '../components/ui/InputField/InputField'
 import styles from './page.module.scss'
 
@@ -8,6 +9,7 @@ import styles from './page.module.scss'
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
 export default function HomePage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -23,6 +25,18 @@ export default function HomePage() {
 
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    const user = localStorage.getItem('user')
+    if (user) {
+      try {
+        JSON.parse(user) // Проверяем, что данные валидные
+        router.push('/requests')
+      } catch (e) {
+        localStorage.removeItem('user')
+      }
+    }
+  }, [router])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

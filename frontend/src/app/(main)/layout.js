@@ -2,9 +2,27 @@
 import LayoutStyles from './layout.module.scss'
 import Image from 'next/image'
 import NotificationBadge from '@/components/ui/NotificationBadge/NotificationBadge'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { NotificationsProvider, useNotifications } from '@/context/NotificationsContext'
-import { UserAuthProvider } from '@/context/UserAuthContext'
+import { UserAuthProvider, useUserAuth } from '@/context/UserAuthContext'
+import { useEffect } from 'react'
+
+function AuthGuard({ children }) {
+  const { user, isLoading } = useUserAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/')
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading || !user) {
+    return null
+  }
+
+  return <>{children}</>
+}
 
 function HeaderNav() {
   const pathname = usePathname()
@@ -41,17 +59,19 @@ export default function MainLayout({ children }) {
   return (
     <UserAuthProvider>
       <NotificationsProvider>
-        <div className={LayoutStyles.profileContainer}>
-          {/* Header */}
-          <header className={LayoutStyles.profileHeader}>
-            <HeaderNav />
-          </header>
+        <AuthGuard>
+          <div className={LayoutStyles.profileContainer}>
+            {/* Header */}
+            <header className={LayoutStyles.profileHeader}>
+              <HeaderNav />
+            </header>
 
-          {/* Main Content */}
-          <main className={LayoutStyles.profileMain}>
-            {children}
-          </main>
-        </div>
+            {/* Main Content */}
+            <main className={LayoutStyles.profileMain}>
+              {children}
+            </main>
+          </div>
+        </AuthGuard>
       </NotificationsProvider>
     </UserAuthProvider>
   )

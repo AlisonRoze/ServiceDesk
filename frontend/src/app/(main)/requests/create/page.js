@@ -34,6 +34,27 @@ export default function CreateRequestPage() {
   const fileInputRef = useRef(null)
   const [offices, setOffices] = useState([])
   const [selectedOfficeId, setSelectedOfficeId] = useState('')
+  const [officeOpen, setOfficeOpen] = useState(false)
+  const officeDropdownRef = useRef(null)
+
+  // Функции для взаимного закрытия dropdown'ов
+  const togglePriorityDropdown = () => {
+    setPriorityOpen(prev => !prev)
+    setIssueOpen(false)
+    setOfficeOpen(false)
+  }
+
+  const toggleIssueDropdown = () => {
+    setIssueOpen(prev => !prev)
+    setPriorityOpen(false)
+    setOfficeOpen(false)
+  }
+
+  const toggleOfficeDropdown = () => {
+    setOfficeOpen(prev => !prev)
+    setPriorityOpen(false)
+    setIssueOpen(false)
+  }
 
   const handleTextareaInput = (e) => {
     const el = e.target
@@ -91,6 +112,9 @@ export default function CreateRequestPage() {
       }
       if (issueDropdownRef.current && !issueDropdownRef.current.contains(e.target)) {
         setIssueOpen(false)
+      }
+      if (officeDropdownRef.current && !officeDropdownRef.current.contains(e.target)) {
+        setOfficeOpen(false)
       }
     }
     document.addEventListener('click', onDocClick)
@@ -234,7 +258,7 @@ export default function CreateRequestPage() {
             <button
               type="button"
               className={styles.dropdownButton}
-              onClick={() => setPriorityOpen((v) => !v)}
+              onClick={togglePriorityDropdown}
               aria-haspopup="listbox"
               aria-expanded={priorityOpen}
             >
@@ -264,34 +288,44 @@ export default function CreateRequestPage() {
 
         {/* Офис и адрес (офис выбирается из выпадающего списка, адрес подставляется автоматически) */}
         <div className={styles.fieldGroup}>
-          <select
-            id="office"
-            className={`${styles.input} ${styles.field40}`}
-            value={selectedOfficeId}
-            onChange={(e) => {
-              const newId = e.target.value
-              setSelectedOfficeId(newId)
-              const office = offices.find((o) => String(o.id) === String(newId))
-              if (office) {
-                setValue('address', office.address, {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                })
-              } else {
-                setValue('address', '', {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                })
-              }
-            }}
+          <div
+            ref={officeDropdownRef}
+            className={`${styles.dropdown} ${styles.field40} ${officeOpen ? styles.open : ''}`}
           >
-            <option value="">Выберите офис</option>
-            {offices.map((office) => (
-              <option key={office.id} value={office.id}>
-                {office.address}
-              </option>
-            ))}
-          </select>
+            <button
+              type="button"
+              className={styles.dropdownButton}
+              onClick={toggleOfficeDropdown}
+              aria-haspopup="listbox"
+              aria-expanded={officeOpen}
+            >
+              {selectedOfficeId 
+                ? offices.find((o) => String(o.id) === String(selectedOfficeId))?.address || 'Выберите офис'
+                : 'Выберите офис'}
+            </button>
+            {officeOpen && (
+              <ul className={styles.dropdownMenu} role="listbox">
+                {offices.map((office) => (
+                  <li
+                    key={office.id}
+                    role="option"
+                    aria-selected={String(office.id) === String(selectedOfficeId)}
+                    className={`${styles.dropdownItem} ${String(office.id) === String(selectedOfficeId) ? styles.active : ''}`}
+                    onClick={() => {
+                      setSelectedOfficeId(String(office.id))
+                      setValue('address', office.address, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                      setOfficeOpen(false)
+                    }}
+                  >
+                    {office.address}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           {/* Скрытое поле адреса, которое уходит на бэкенд */}
           <input
             type="hidden"
@@ -305,7 +339,7 @@ export default function CreateRequestPage() {
             <span className={styles.error}>{errors.address.message}</span>
           )}
           <span className={styles.hint}>
-            Изначально выбран офис, к которому вы привязаны. При необходимости выберите другой адрес из списка.
+            Изначально выбран офис, к которому Вы привязаны. При необходимости выберите другой адрес из списка.
           </span>
         </div>
 
@@ -331,7 +365,7 @@ export default function CreateRequestPage() {
             <button
               type="button"
               className={styles.dropdownButton}
-              onClick={() => setIssueOpen((v) => !v)}
+              onClick={toggleIssueDropdown}
               aria-haspopup="listbox"
               aria-expanded={issueOpen}
             >
