@@ -55,6 +55,19 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
   const [issueTypeOpen, setIssueTypeOpen] = useState(false)
   const [performerOpen, setPerformerOpen] = useState(false)
   const [users, setUsers] = useState([])
+
+  // Определяем, является ли пользователь создателем заявки
+  const isCreator = user && request && request.user && (
+    String(request.user.id) === String(user.id) || 
+    String(request.userId) === String(user.id) ||
+    String(request.createdBy?.id) === String(user.id)
+  )
+
+  // Определяем, можно ли редактировать заявку (для создателя - только если статус new или revision)
+  const canEditAsCreator = isCreator && request && (request.status === 'new' || request.status === 'revision')
+
+  const canEditExpensesAndComment = isAHO
+  const canEditAllFields = canEditAsCreator
   
   // Синхронизируем ref с state для доступа к актуальным данным в cleanup функциях
   useEffect(() => {
@@ -64,9 +77,9 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
-        // Сохраняем данные перед закрытием для АХО
+        // Сохраняем данные перед закрытием, если есть права на редактирование
         const currentEditedData = editedDataRef.current
-        if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
+        if ((canEditExpensesAndComment || canEditAllFields) && currentEditedData && Object.keys(currentEditedData).length > 0) {
           saveRequestData()
         }
         onClose()
@@ -83,14 +96,14 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
       document.body.style.overflow = 'unset'
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, onClose, isAHO])
+  }, [isOpen, onClose, canEditExpensesAndComment, canEditAllFields])
 
   useEffect(() => {
     const handleClickOutside = async (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) {
-        // Сохраняем данные перед закрытием для АХО
+        // Сохраняем данные перед закрытием, если есть права на редактирование
         const currentEditedData = editedDataRef.current
-        if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
+        if ((canEditExpensesAndComment || canEditAllFields) && currentEditedData && Object.keys(currentEditedData).length > 0) {
           await saveRequestData()
         }
         onClose()
@@ -109,15 +122,15 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
-      // Сохраняем данные при размонтировании компонента для АХО
+      // Сохраняем данные при размонтировании компонента, если есть права на редактирование
       const currentEditedData = editedDataRef.current
-      if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
+      if ((canEditExpensesAndComment || canEditAllFields) && currentEditedData && Object.keys(currentEditedData).length > 0) {
         // Используем setTimeout чтобы дать время на выполнение асинхронной операции
         saveRequestData().catch(console.error)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isAHO, onClose])
+  }, [isOpen, canEditExpensesAndComment, canEditAllFields, onClose])
 
   // Загрузка списка пользователей для выбора исполнителя (только АХО)
   useEffect(() => {
@@ -176,10 +189,11 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           ? request.comments[request.comments.length - 1].content || '' 
           : '',
       })
-      // Для АХО режим редактирования включен по умолчанию
-      setIsEditing(isAHO)
+      // Режим редактирования: для АХО всегда включен (редактируют затраты и комментарий)
+      // Для создателя - только если статус new или revision
+      setIsEditing(isAHO || canEditAsCreator)
     }
-  }, [request, isOpen, isAHO])
+  }, [request, isOpen, isAHO, canEditAsCreator])
 
   const handleEdit = () => {
     setIsEditing(true)
@@ -271,7 +285,9 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
   }
 
   const saveRequestData = async (dataToSave = null) => {
-    if (!request || !isAHO || !user) return
+    if (!request || !user) return
+    // Проверяем права на редактирование
+    if (!canEditExpensesAndComment && !canEditAllFields) return
 
     // Используем переданные данные или берем из ref (который всегда актуален)
     const currentData = dataToSave || editedDataRef.current
@@ -279,23 +295,32 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
     if (!currentData || Object.keys(currentData).length === 0) return
 
     try {
+      const bodyData = {
+        user_id: user.id,
+      }
+
+      // Для АХО: отправляем только затраты и комментарий
+      if (canEditExpensesAndComment) {
+        if (currentData.expenses) bodyData.expenses = currentData.expenses
+        if (currentData.comment !== undefined) bodyData.comment = currentData.comment
+      }
+
+      // Для создателя: отправляем все поля
+      if (canEditAllFields) {
+        if (currentData.priority) bodyData.priority = currentData.priority
+        if (currentData.issueType) bodyData.issueType = currentData.issueType
+        if (currentData.address !== undefined) bodyData.address = currentData.address
+        if (currentData.locationDescription !== undefined) bodyData.locationDescription = currentData.locationDescription
+        if (currentData.employeeLocation !== undefined) bodyData.employeeLocation = currentData.employeeLocation
+        if (currentData.problemDescription !== undefined) bodyData.problemDescription = currentData.problemDescription
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/requests/${request.id}/update/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          user_id: user.id,
-          priority: currentData.priority,
-          issueType: currentData.issueType,
-          address: currentData.address,
-          locationDescription: currentData.locationDescription,
-          employeeLocation: currentData.employeeLocation,
-          problemDescription: currentData.problemDescription,
-          performerId: currentData.performerId,
-          expenses: currentData.expenses,
-          comment: currentData.comment,
-        }),
+        body: JSON.stringify(bodyData),
       })
 
       const data = await response.json()
@@ -312,7 +337,8 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
   }
 
   const handlePriorityClick = () => {
-    if (!isAHO || !isEditing) return
+    // Приоритет можно редактировать только создателю (не АХО)
+    if (!canEditAllFields || !isEditing) return
     
     const currentIndex = priorityOptions.findIndex(opt => opt.value === editedData.priority)
     const nextIndex = (currentIndex + 1) % priorityOptions.length
@@ -345,9 +371,9 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           <button 
             className={styles.closeButton} 
             onClick={async () => {
-              // Сохраняем данные перед закрытием для АХО
+              // Сохраняем данные перед закрытием, если есть права на редактирование
               const currentEditedData = editedDataRef.current
-              if (isAHO && currentEditedData && Object.keys(currentEditedData).length > 0) {
+              if ((canEditExpensesAndComment || canEditAllFields) && currentEditedData && Object.keys(currentEditedData).length > 0) {
                 await saveRequestData()
               }
               onClose()
@@ -363,8 +389,8 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           <div className={`${styles.fieldGroup} ${styles.priorityFieldGroup}`}>
             <div 
               className={`${styles.priorityField} ${styles[editedData.priority || request.priority]}`}
-              onClick={isAHO && isEditing ? handlePriorityClick : undefined}
-              style={isAHO && isEditing ? { cursor: 'pointer' } : {}}
+              onClick={canEditAllFields && isEditing ? handlePriorityClick : undefined}
+              style={canEditAllFields && isEditing ? { cursor: 'pointer' } : {}}
             >
               {priorityLabel}
             </div>
@@ -373,11 +399,11 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           {/* Адрес */}
           <div className={styles.fieldGroup}>
             {(() => {
-              const addressValue = isAHO && isEditing ? editedData.address : (request.address || request.location)
+              const addressValue = canEditAllFields && isEditing ? editedData.address : (request.address || request.location)
               return addressValue ? (
                 <div className={styles.readonlyField}>
                   <label className={styles.label}>Адрес</label>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <input
                       type="text"
                       className={styles.input}
@@ -391,7 +417,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
                 </div>
               ) : (
                 <div className={styles.readonlyField}>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <>
                       <label className={styles.label}>Адрес</label>
                       <input
@@ -413,11 +439,11 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           {/* Место сотрудника */}
           <div className={styles.fieldGroup}>
             {(() => {
-              const employeeLocationValue = isAHO && isEditing ? editedData.employeeLocation : request.employeeLocation
+              const employeeLocationValue = canEditAllFields && isEditing ? editedData.employeeLocation : request.employeeLocation
               return employeeLocationValue ? (
                 <div className={styles.readonlyField}>
                   <label className={styles.label}>Место сотрудника</label>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <input
                       type="text"
                       className={styles.input}
@@ -431,7 +457,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
                 </div>
               ) : (
                 <div className={styles.readonlyField}>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <>
                       <label className={styles.label}>Место сотрудника</label>
                       <input
@@ -453,13 +479,13 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           {/* Тип поломки */}
           <div className={styles.fieldGroup}>
             {(() => {
-              const issueTypeValue = isAHO && isEditing 
+              const issueTypeValue = canEditAllFields && isEditing 
                 ? issueTypeLabels[editedData.issueType] || editedData.issueType
                 : issueTypeLabel
               return issueTypeValue ? (
                 <div className={styles.readonlyField}>
                   <label className={styles.label}>Тип поломки</label>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <div
                       ref={issueTypeDropdownRef}
                       className={`${styles.dropdown} ${issueTypeOpen ? styles.open : ''}`}
@@ -498,7 +524,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
                 </div>
               ) : (
                 <div className={styles.readonlyField}>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <>
                       <label className={styles.label}>Тип поломки</label>
                       <div
@@ -545,13 +571,13 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           {/* Описание локации */}
           <div className={styles.fieldGroup}>
             {(() => {
-              const locationValue = isAHO && isEditing 
+              const locationValue = canEditAllFields && isEditing 
                 ? editedData.locationDescription 
                 : (request.locationDescription || request.location)
               return locationValue ? (
                 <div className={styles.readonlyField}>
                   <label className={styles.label}>Описание локации</label>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <input
                       type="text"
                       className={styles.input}
@@ -565,7 +591,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
                 </div>
               ) : (
                 <div className={styles.readonlyField}>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <>
                       <label className={styles.label}>Описание локации</label>
                       <input
@@ -587,13 +613,13 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
           {/* Описание проблемы */}
           <div className={styles.fieldGroup}>
             {(() => {
-              const problemDescriptionValue = isAHO && isEditing 
+              const problemDescriptionValue = canEditAllFields && isEditing 
                 ? editedData.problemDescription 
                 : request.problemDescription
               return problemDescriptionValue ? (
                 <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
                   <label className={styles.label}>Описание проблемы</label>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <textarea
                       className={styles.input}
                       value={editedData.problemDescription}
@@ -607,7 +633,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
                 </div>
               ) : (
                 <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
-                  {isAHO && isEditing ? (
+                  {canEditAllFields && isEditing ? (
                     <>
                       <label className={styles.label}>Описание проблемы</label>
                       <textarea
@@ -626,122 +652,15 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
             })()}
           </div>
 
-          {/* Исполнитель - только для АХО */}
+          {/* Исполнитель - только для АХО (только чтение) */}
           {isAHO && (
             <div className={styles.fieldGroup}>
-              {(() => {
-                const performerValue = isEditing 
-                  ? (users.find(u => u.id === editedData.performerId) 
-                      ? formatPerformerName(users.find(u => u.id === editedData.performerId))
-                      : (request.performer ? formatPerformerName(request.performer) : 'Не назначен'))
-                  : (request.performer ? formatPerformerName(request.performer) : 'Не назначен')
-                
-                return performerValue ? (
-                  <div className={styles.readonlyField}>
-                    <label className={styles.label}>Исполнитель</label>
-                    {isEditing ? (
-                      <div
-                        ref={performerDropdownRef}
-                        className={`${styles.dropdown} ${performerOpen ? styles.open : ''}`}
-                      >
-                        <button
-                          type="button"
-                          className={styles.dropdownButton}
-                          onClick={() => setPerformerOpen((v) => !v)}
-                          aria-haspopup="listbox"
-                          aria-expanded={performerOpen}
-                        >
-                          {users.find(u => u.id === editedData.performerId) 
-                            ? formatPerformerName(users.find(u => u.id === editedData.performerId))
-                            : (request.performer ? formatPerformerName(request.performer) : 'Не назначен')}
-                        </button>
-                        {performerOpen && (
-                          <ul className={styles.dropdownMenu} role="listbox">
-                            <li
-                              role="option"
-                              className={`${styles.dropdownItem} ${!editedData.performerId ? styles.active : ''}`}
-                              onClick={() => {
-                                handleChange('performerId', '')
-                                setPerformerOpen(false)
-                              }}
-                            >
-                              Не назначен
-                            </li>
-                            {users.map(user => (
-                              <li
-                                key={user.id}
-                                role="option"
-                                aria-selected={user.id === editedData.performerId}
-                                className={`${styles.dropdownItem} ${user.id === editedData.performerId ? styles.active : ''}`}
-                                onClick={() => {
-                                  handleChange('performerId', user.id)
-                                  setPerformerOpen(false)
-                                }}
-                              >
-                                {formatPerformerName(user)}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ) : (
-                      <div className={styles.value}>{performerValue}</div>
-                    )}
-                  </div>
-                ) : (
-                  <div className={styles.readonlyField}>
-                    {isEditing ? (
-                      <>
-                        <label className={styles.label}>Исполнитель</label>
-                        <div
-                          ref={performerDropdownRef}
-                          className={`${styles.dropdown} ${performerOpen ? styles.open : ''}`}
-                        >
-                          <button
-                            type="button"
-                            className={styles.dropdownButton}
-                            onClick={() => setPerformerOpen((v) => !v)}
-                            aria-haspopup="listbox"
-                            aria-expanded={performerOpen}
-                          >
-                            Не назначен
-                          </button>
-                          {performerOpen && (
-                            <ul className={styles.dropdownMenu} role="listbox">
-                              <li
-                                role="option"
-                                className={`${styles.dropdownItem} ${!editedData.performerId ? styles.active : ''}`}
-                                onClick={() => {
-                                  handleChange('performerId', '')
-                                  setPerformerOpen(false)
-                                }}
-                              >
-                                Не назначен
-                              </li>
-                              {users.map(user => (
-                                <li
-                                  key={user.id}
-                                  role="option"
-                                  aria-selected={user.id === editedData.performerId}
-                                  className={`${styles.dropdownItem} ${user.id === editedData.performerId ? styles.active : ''}`}
-                                  onClick={() => {
-                                    handleChange('performerId', user.id)
-                                    setPerformerOpen(false)
-                                  }}
-                                >
-                                  {formatPerformerName(user)}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div className={styles.placeholder}>Исполнитель</div>
-                    )}
-                  </div>
-                )
-              })()}
+              <div className={styles.readonlyField}>
+                <label className={styles.label}>Исполнитель</label>
+                <div className={styles.value}>
+                  {request.performer ? formatPerformerName(request.performer) : 'Не назначен'}
+                </div>
+              </div>
             </div>
           )}
 
@@ -803,10 +722,10 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
             </div>
           )}
 
-          {/* Комментарий - видим для всех, редактирование только для АХО */}
+          {/* Комментарий - редактирование только для АХО */}
           <div className={styles.fieldGroup}>
             {(() => {
-              const commentValue = isAHO && isEditing 
+              const commentValue = canEditExpensesAndComment && isEditing 
                 ? editedData.comment 
                 : (request.comments && request.comments.length > 0 
                     ? request.comments[request.comments.length - 1].content || '' 
@@ -815,7 +734,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
               return commentValue ? (
                 <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
                   <label className={styles.label}>Комментарий</label>
-                  {isAHO && isEditing ? (
+                  {canEditExpensesAndComment && isEditing ? (
                     <textarea
                       className={styles.input}
                       value={editedData.comment}
@@ -829,7 +748,7 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
                 </div>
               ) : (
                 <div className={`${styles.readonlyField} ${styles.problemDescriptionField}`}>
-                  {isAHO && isEditing ? (
+                  {canEditExpensesAndComment && isEditing ? (
                     <>
                       <label className={styles.label}>Комментарий</label>
                       <textarea

@@ -43,6 +43,12 @@ export default function RequestsPage() {
   // Определяем, может ли пользователь перемещать заявки (только АХО)
   const canDragRequests = isAHO
 
+  // Проверка доступа к архиву: только для супервайзеров и руководителей
+  const canAccessArchive = user && user.role && (
+    user.role.toLowerCase() === 'supervisor' || 
+    user.role.toLowerCase() === 'manager'
+  )
+
   const loadRequests = async (currentFilter = filterType) => {
     if (!user || !user.id) {
       setIsLoading(false)
@@ -243,7 +249,7 @@ export default function RequestsPage() {
   return (
     <div className={styles.pageContainer}>
       <div className={styles.filtersContainer}>
-        {isAHO && (
+        {canAccessArchive && (
           <button 
             className={styles.archiveButton}
             onClick={handleArchiveClick}

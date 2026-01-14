@@ -60,12 +60,17 @@ export default function ArchivePage() {
   const { user, isAHO } = useUserAuth()
   const router = useRouter()
 
-  // Проверка доступа - только для АХО
+  // Проверка доступа к архиву: только для супервайзеров и руководителей
+  const canAccessArchive = user && user.role && (
+    user.role.toLowerCase() === 'supervisor' || 
+    user.role.toLowerCase() === 'manager'
+  )
+
   useEffect(() => {
-    if (user && !isAHO) {
+    if (user && !canAccessArchive) {
       router.push('/requests')
     }
-  }, [user, isAHO, router])
+  }, [user, canAccessArchive, router])
 
   // Обработка кликов вне выпадающих меню
   useEffect(() => {
@@ -269,7 +274,7 @@ export default function ArchivePage() {
     )
   }
 
-  if (!isAHO) {
+  if (!canAccessArchive) {
     return null
   }
 
