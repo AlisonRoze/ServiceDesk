@@ -843,6 +843,15 @@ def update_request(request, request_id):
                 status=400
             )
 
+        # Поиск пользователя
+        try:
+            user = User.objects.get(id_user=user_id)
+        except User.DoesNotExist:
+            return JsonResponse(
+                {'error': 'Пользователь не найден'},
+                status=404
+            )
+
         # Поиск заявки
         try:
             req = Request.objects.get(id_request=request_id)
@@ -852,18 +861,24 @@ def update_request(request, request_id):
                 status=404
             )
 
-        # Проверяем, что пользователь является сотрудником АХО
-        try:
-            user = User.objects.get(id_user=user_id)
-            if user.role and 'ахо' not in user.role.lower() and 'aho' not in user.role.lower():
-                return JsonResponse(
-                    {'error': 'Только сотрудники АХО могут редактировать заявки'},
-                    status=403
-                )
-        except User.DoesNotExist:
+        # Проверяем права на редактирование
+        # 1. Сотрудники АХО могут редактировать любые заявки
+        # 2. Создатель заявки может редактировать только в статусах "Новая" и "На доработке"
+        user_role = (user.role or '').lower()
+        is_aho_user = 'ахо' in user_role or 'aho' in user_role
+        is_creator = req.user_id == user.id_user
+        editable_statuses_for_creator = {'Новая', 'На доработке'}
+
+        if not (is_aho_user or (is_creator and req.status and req.status.name in editable_statuses_for_creator)):
             return JsonResponse(
-                {'error': 'Пользователь не найден'},
-                status=404
+                {
+                    'error': (
+                        'Недостаточно прав для редактирования заявки. '
+                        'Редактировать могут сотрудники АХО или создатель заявки, '
+                        'если статус "Новая" или "На доработке".'
+                    )
+                },
+                status=403
             )
 
         # Обновляем поля заявки

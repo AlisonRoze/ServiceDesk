@@ -40,7 +40,7 @@ const issueTypeOptions = [
   { value: 'other', label: 'Другое' },
 ]
 
-export default function RequestViewModal({ request, isOpen, onClose }) {
+export default function RequestViewModal({ request, isOpen, onClose, isCreatorView }) {
   const modalRef = useRef(null)
   const issueTypeDropdownRef = useRef(null)
   const performerDropdownRef = useRef(null)
@@ -57,11 +57,14 @@ export default function RequestViewModal({ request, isOpen, onClose }) {
   const [users, setUsers] = useState([])
 
   // Определяем, является ли пользователь создателем заявки
-  const isCreator = user && request && request.user && (
+  // На доске заявок это явно передаётся через проп isCreatorView,
+  // т.к. бэкенд в списке не возвращает данные о создателе.
+  const inferredCreator = user && request && request.user && (
     String(request.user.id) === String(user.id) || 
     String(request.userId) === String(user.id) ||
     String(request.createdBy?.id) === String(user.id)
   )
+  const isCreator = Boolean(isCreatorView ?? inferredCreator)
 
   // Определяем, можно ли редактировать заявку (для создателя - только если статус new или revision)
   const canEditAsCreator = isCreator && request && (request.status === 'new' || request.status === 'revision')

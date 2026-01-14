@@ -12,14 +12,17 @@ import Image from 'next/image'
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
 
-// Конфигурация колонок для разных ролей
+// Базовая конфигурация колонок для разных ролей
 const statusConfigs = {
   employee: {
     revision: { label: 'На доработке', key: 'revision' },
     new: { label: 'Активные', key: 'new' },
     completed: { label: 'Выполненные', key: 'completed' },
   },
-  aho: {
+  // Для АХО используется два варианта:
+  // 1) В "Мои заявки" — классический дашборд на три столбца (как у сотрудника)
+  // 2) В "Я исполнитель" — расширенный дашборд на четыре столбца
+  ahoPerformer: {
     new: { label: 'Новые', key: 'new' },
     in_progress: { label: 'В работе', key: 'in_progress' },
     completed: { label: 'Выполненные', key: 'completed' },
@@ -87,7 +90,17 @@ export default function RequestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, filterType])
 
-  const statusConfig = statusConfigs[userRole] || statusConfigs.employee
+  // Конфигурация колонок в зависимости от роли и выбранного фильтра
+  let statusConfig
+  if (isAHO && filterType === 'my_requests') {
+    // Для АХО в разделе "Мои заявки" показываем классический дашборд на три столбца
+    statusConfig = statusConfigs.employee
+  } else if (isAHO) {
+    // Для АХО в режиме "Я исполнитель" — расширенный дашборд на четыре столбца
+    statusConfig = statusConfigs.ahoPerformer
+  } else {
+    statusConfig = statusConfigs.employee
+  }
 
   const filterOptions = [
     { value: 'my_requests', label: 'Мои заявки' },
@@ -202,10 +215,21 @@ export default function RequestsPage() {
   }
 
   const getRequestsByStatus = (status) => {
-    // Для обычного пользователя в колонке "Активные" показываем все статусы, кроме "Выполнена" и "На доработке"
-    if (userRole === 'employee' && status === 'new') {
-      return requests.filter((req) => req.status !== 'completed' && req.status !== 'revision')
+    // В колонке "Активные" для:
+    // - обычного сотрудника
+    // - супервайзера
+    // - менеджера
+    // - АХО в режиме "Мои заявки"
+    // показываем все незавершённые заявки, кроме "Выполнена" и "На доработке"
+    const isClassicDashboard =
+      !isAHO || (isAHO && filterType === 'my_requests')
+
+    if (isClassicDashboard && status === 'new') {
+      return requests.filter(
+        (req) => req.status !== 'completed' && req.status !== 'revision'
+      )
     }
+
     return requests.filter((req) => req.status === status)
   }
 
@@ -246,6 +270,11 @@ export default function RequestsPage() {
     )
   }
 
+  // Класс для дашборда по ролям:
+  // все не-АХО (сотрудник, супервайзер, менеджер) используют разметку employee,
+  // АХО — разметку aho
+  const dashboardRoleClassKey = isAHO ? 'aho' : 'employee'
+
   return (
     <div className={styles.pageContainer}>
       <div className={styles.filtersContainer}>
@@ -258,44 +287,55 @@ export default function RequestsPage() {
           </button>
         )}
         
-        <div className={styles.filterDropdown} ref={dropdownRef}>
-          <button
-            className={styles.filterButton}
-            onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-          >
-            {filterOptions.find(opt => opt.value === filterType)?.label || 'Мои заявки'}
-            <svg 
-              className={`${styles.arrow} ${isFilterDropdownOpen ? styles.arrowOpen : ''}`}
-              width="23" 
-              height="13" 
-              viewBox="0 0 23 13" 
-              fill="none" 
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path 
-                d="M9.98524 0.43934C10.571 -0.146447 11.5208 -0.146447 12.1066 0.43934L21.6525 9.98528C22.2383 10.5711 22.2383 11.5208 21.6525 12.1066C21.0667 12.6924 20.117 12.6924 19.5312 12.1066L11.0459 3.62132L2.56062 12.1066C1.97483 12.6924 1.02508 12.6924 0.439297 12.1066C-0.14649 11.5208 -0.14649 10.5711 0.439297 9.98528L9.98524 0.43934ZM11.0459 2.5H9.5459V1.5H11.0459H12.5459V2.5H11.0459Z" 
-                fill="#121212"
-              />
-            </svg>
-          </button>
-          
-          {isFilterDropdownOpen && (
-            <div className={styles.dropdownMenu}>
-              {filterOptions.map((option) => (
-                <button
-                  key={option.value}
-                  className={`${styles.dropdownItem} ${filterType === option.value ? styles.active : ''}`}
-                  onClick={() => handleFilterChange(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
+        {/* Фильтр "Мои заявки / Я исполнитель":
+            - для обычного сотрудника показываем только подпись "Мои заявки" без стрелки и меню
+            - для АХО оставляем выпадающий список */}
+        {!isAHO ? (
+          <div className={styles.filterDropdown}>
+            <div className={`${styles.filterButton} ${styles.filterButtonStatic}`}>
+              Мои заявки
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className={styles.filterDropdown} ref={dropdownRef}>
+            <button
+              className={styles.filterButton}
+              onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+            >
+              {filterOptions.find(opt => opt.value === filterType)?.label || 'Мои заявки'}
+              <svg 
+                className={`${styles.arrow} ${isFilterDropdownOpen ? styles.arrowOpen : ''}`}
+                width="23" 
+                height="13" 
+                viewBox="0 0 23 13" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path 
+                  d="M9.98524 0.43934C10.571 -0.146447 11.5208 -0.146447 12.1066 0.43934L21.6525 9.98528C22.2383 10.5711 22.2383 11.5208 21.6525 12.1066C21.0667 12.6924 20.117 12.6924 19.5312 12.1066L11.0459 3.62132L2.56062 12.1066C1.97483 12.6924 1.02508 12.6924 0.439297 12.1066C-0.14649 11.5208 -0.14649 10.5711 0.439297 9.98528L9.98524 0.43934ZM11.0459 2.5H9.5459V1.5H11.0459H12.5459V2.5H11.0459Z" 
+                  fill="#121212"
+                />
+              </svg>
+            </button>
+            
+            {isFilterDropdownOpen && (
+              <div className={styles.dropdownMenu}>
+                {filterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    className={`${styles.dropdownItem} ${filterType === option.value ? styles.active : ''}`}
+                    onClick={() => handleFilterChange(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className={`${styles.dashboard} ${styles[userRole]}`}>
+      <div className={`${styles.dashboard} ${styles[dashboardRoleClassKey]}`}>
       {Object.values(statusConfig).map((config) => {
         const columnRequests = getRequestsByStatus(config.key)
         const isDraggedOver = draggedOverColumn === config.key
@@ -337,6 +377,8 @@ export default function RequestsPage() {
         request={selectedRequest}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        // В режиме "Мои заявки" текущий пользователь — создатель заявок
+        isCreatorView={filterType === 'my_requests'}
       />
     </div>
   )

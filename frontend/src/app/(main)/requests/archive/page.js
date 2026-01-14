@@ -444,6 +444,8 @@ export default function ArchivePage() {
         request={selectedRequest}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        // В архиве всегда только просмотр, без редактирования
+        isCreatorView={false}
       />
     </div>
   )
